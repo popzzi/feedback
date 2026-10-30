@@ -1111,9 +1111,10 @@
 
         async function syncAndSaveToSheet() {
             try {
+                // 🌟 comments를 이중 문자열화하지 않고 순수 객체(또는 배열) 형태로 전달
                 const payload = globalFeedbacks.map(f => ({
                     ...f,
-                    comments: JSON.stringify(f.comments || [])
+                    comments: f.comments || [] 
                 }));
 
                 await fetch(APPS_SCRIPT_URL, {
