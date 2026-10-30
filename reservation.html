@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSOLUCK - 예약 관리</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter 적용 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style> 
+        body { font-family: 'Inter', sans-serif; } 
+
+        /* 피드백 모드 활성화 시 커서 및 호버 효과 */
+        body.feedback-mode * { cursor: crosshair !important; }
+        body.feedback-mode *:hover { outline: 2px dashed #6366f1 !important; outline-offset: 2px; }
+
+        /* 빨간 별표 피드백 마커 스타일 */
+        .feedback-star-marker {
+            position: absolute;
+            z-index: 40;
+            width: 24px;
+            height: 24px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4);
+            cursor: pointer;
+            transform: translate(-50%, -50%);
+            transition: transform 0.2s ease;
+        }
+        .feedback-star-marker:hover { transform: translate(-50%, -50%) scale(1.2); z-index: 70; }
+        .feedback-star-marker-modal { z-index: 70; }
+
+        /* 별표 마커에 마우스 호버 시 나타나는 상세 툴팁 카드 */
+        .feedback-hover-tooltip {
+            position: absolute;
+            bottom: 130%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgb(15 23 42 / 95%);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            white-space: nowrap;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            z-index: 80;
+        }
+        .feedback-star-marker:hover .feedback-hover-tooltip { opacity: 1; visibility: visible; }
+        
+        @keyframes marker-bounce-highlight {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.6); background-color: #6366f1; }
+        }
+        .marker-highlight-anim {
+            animation: marker-bounce-highlight 0.6s ease-in-out 3;
+            z-index: 999 !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased">
+
+    <!-- 1. 세부 정보 팝업 모달 (높이 80% 고정) -->
+    <div id="detail-modal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-5xl h-[80vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            
+            <!-- 모달 헤더 -->
+            <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between flex-shrink-0">
+                <div class="flex items-center gap-4 text-sm">
+                    <span class="font-bold">예약 번호 : <span id="modal-id" class="font-mono text-indigo-400">R20261027-1974</span></span>
+                    <span class="text-slate-400 text-xs">예약 일 : 2026년 10월 27일</span>
+                </div>
+                <button type="button" onclick="closeModal()" class="text-slate-400 hover:text-white p-1 rounded-lg focus:outline-none">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <!-- 모달 탭 메뉴 -->
+            <div class="bg-slate-800 text-slate-300 px-6 flex gap-6 text-sm flex-shrink-0 border-b border-slate-700 overflow-x-auto">
+                <button type="button" onclick="switchModalTab('info')" id="mtab-btn-info" class="py-3 text-white font-medium border-b-2 border-indigo-500 whitespace-nowrap">예약 정보</button>
+                <button type="button" onclick="switchModalTab('manifest')" id="mtab-btn-manifest" class="py-3 hover:text-white transition-colors whitespace-nowrap">예약 명단</button>
+                <button type="button" onclick="switchModalTab('payment')" id="mtab-btn-payment" class="py-3 hover:text-white transition-colors whitespace-nowrap">결제 정보</button>
+                <button type="button" onclick="switchModalTab('extra')" id="mtab-btn-extra" class="py-3 hover:text-white transition-colors whitespace-nowrap">추가 정보</button>
+                <button type="button" onclick="switchModalTab('email')" id="mtab-btn-email" class="py-3 hover:text-white transition-colors whitespace-nowrap">메일 전송</button>
+            </div>
+
+            <!-- 모달 탭 콘텐츠 영역 (내부 스크롤) -->
+            <div class="p-6 overflow-y-auto space-y-6 text-sm text-slate-700 flex-1">
+                
+                <!-- 1. 예약 정보 탭 -->
+                <div id="mtab-content-info" class="space-y-6">
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="space-y-1">
+                            <div class="text-xs font-semibold text-slate-500">상품 정보</div>
+                            <div id="modal-product-title" class="font-bold text-slate-900 text-base">Standard VIP Tour Package</div>
+                            <div class="text-xs text-slate-500 flex gap-4">
+                                <span>상품 ID : T26R07A1316</span>
+                                <span>카테고리 : 없음</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <select class="px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white">
+                                <option>예약 확정</option>
+                                <option>취소 요청</option>
+                                <option>예약 취소</option>
+                            </select>
+                            <button type="button" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium transition-colors">저장</button>
+                        </div>
+                    </div>
+                    <div class="border border-slate-200 rounded-xl overflow-hidden">
+                        <table class="w-full text-left border-collapse">
+                            <tbody class="divide-y divide-slate-200 text-xs">
+                                <tr><th class="bg-slate-50 py-3 px-4 w-32 font-medium text-slate-600">예약자</th><td class="py-3 px-4">wan (gwgk@tothe.com, 01012345678)</td></tr>
+                                <tr><th class="bg-slate-50 py-3 px-4 w-32 font-medium text-slate-600">옵션</th><td class="py-3 px-4">인원: 1명</td></tr>
+                                <tr><th class="bg-slate-50 py-3 px-4 w-32 font-medium text-slate-600">선택날짜</th><td class="py-3 px-4">2026-11-05 00:00</td></tr>
+                                <tr><th class="bg-slate-50 py-3 px-4 w-32 font-medium text-slate-600">총 금액</th><td class="py-3 px-4 font-semibold text-slate-900">₩ 85,000</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 2. 예약 명단 탭 -->
+                <div id="mtab-content-manifest" class="space-y-4 hidden">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-700"><i class="fa-solid fa-users text-indigo-600 mr-1"></i> 예약 동반자 명단 (총 2명)</span>
+                        <button type="button" onclick="alert('예약 명단 엑셀 다운로드가 시작됩니다.')" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-excel"></i> 명단 다운로드
+                        </button>
+                    </div>
+                    <div class="border border-slate-200 rounded-xl overflow-hidden">
+                        <div class="overflow-x-auto max-h-[400px]">
+                            <table class="w-full text-left border-collapse min-w-[1200px]">
+                                <thead class="bg-slate-100 text-slate-600 text-[11px] uppercase border-b border-slate-200 sticky top-0">
+                                    <tr>
+                                        <th class="py-2.5 px-3">no</th>
+                                        <th class="py-2.5 px-3">국적</th>
+                                        <th class="py-2.5 px-3">이름</th>
+                                        <th class="py-2.5 px-3">생년월일</th>
+                                        <th class="py-2.5 px-3">성별</th>
+                                        <th class="py-2.5 px-3">여권 번호</th>
+                                        <th class="py-2.5 px-3">전화번호</th>
+                                        <th class="py-2.5 px-3">이메일</th>
+                                        <th class="py-2.5 px-3">항공편</th>
+                                        <th class="py-2.5 px-3">출발지</th>
+                                        <th class="py-2.5 px-3">도착지</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200 text-xs text-slate-700">
+                                    <tr>
+                                        <td class="py-2.5 px-3 font-mono font-bold">1</td>
+                                        <td class="py-2.5 px-3">대한민국 (KOR)</td>
+                                        <td class="py-2.5 px-3 font-bold">환 (WAN K)</td>
+                                        <td class="py-2.5 px-3 font-mono">1979-05-14</td>
+                                        <td class="py-2.5 px-3">M</td>
+                                        <td class="py-2.5 px-3 font-mono">M12345678</td>
+                                        <td class="py-2.5 px-3 font-mono">010-1234-5678</td>
+                                        <td class="py-2.5 px-3">assgk@tothe.com</td>
+                                        <td class="py-2.5 px-3 font-mono">KE012</td>
+                                        <td class="py-2.5 px-3">ICN</td>
+                                        <td class="py-2.5 px-3">NAG</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-2.5 px-3 font-mono font-bold">2</td>
+                                        <td class="py-2.5 px-3">미국 (USA)</td>
+                                        <td class="py-2.5 px-3 font-bold">JANE DOE</td>
+                                        <td class="py-2.5 px-3 font-mono">1990-11-22</td>
+                                        <td class="py-2.5 px-3">F</td>
+                                        <td class="py-2.5 px-3 font-mono">US98765432</td>
+                                        <td class="py-2.5 px-3 font-mono">+1-555-0199</td>
+                                        <td class="py-2.5 px-3">janedoe@example.com</td>
+                                        <td class="py-2.5 px-3 font-mono">OZ102</td>
+                                        <td class="py-2.5 px-3">LAX</td>
+                                        <td class="py-2.5 px-3">ICN</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 결제 정보 탭 -->
+                <div id="mtab-content-payment" class="space-y-6 hidden text-xs">
+                    <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-2">
+                        <div class="flex items-center justify-between font-bold text-slate-800 pb-2 border-b border-slate-100">
+                            <span>결제 정보</span>
+                            <span class="text-slate-500 font-normal">결제일 : 2026-10-27</span>
+                        </div>
+                        <div class="text-slate-700">총 금액 : <span class="font-bold text-indigo-600">₩ 5,000</span> (할인금액: ₩ 0)</div>
+                        <div class="text-slate-600">예약 인원 : 1 명</div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <h4 class="font-bold text-slate-800">구매 옵션</h4>
+                        <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-slate-100 text-slate-600 uppercase text-[11px] border-b border-slate-200">
+                                    <tr>
+                                        <th class="py-2.5 px-3">no</th>
+                                        <th class="py-2.5 px-3">옵션명</th>
+                                        <th class="py-2.5 px-3 text-right">설정 가격</th>
+                                        <th class="py-2.5 px-3 text-right">옵션 가격</th>
+                                        <th class="py-2.5 px-3 text-center">구매 개수</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200 text-slate-700">
+                                    <tr>
+                                        <td class="py-2.5 px-3 font-mono font-bold">1</td>
+                                        <td class="py-2.5 px-3 font-semibold text-slate-900">Ticket</td>
+                                        <td class="py-2.5 px-3 text-right font-mono">₩ 5,000</td>
+                                        <td class="py-2.5 px-3 text-right font-mono font-bold text-indigo-600">₩ 5,000</td>
+                                        <td class="py-2.5 px-3 text-center font-mono">1</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <h4 class="font-bold text-slate-800">결제 내역</h4>
+                            <button type="button" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">+ 추가</button>
+                        </div>
+                        <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-slate-100 text-slate-600 uppercase text-[11px] border-b border-slate-200">
+                                    <tr>
+                                        <th class="py-2.5 px-3">no</th>
+                                        <th class="py-2.5 px-3">PG사</th>
+                                        <th class="py-2.5 px-3 text-right">결제 금액</th>
+                                        <th class="py-2.5 px-3">결제 타입</th>
+                                        <th class="py-2.5 px-3">결제 상태</th>
+                                        <th class="py-2.5 px-3 text-center">관리</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200 text-slate-700">
+                                    <tr>
+                                        <td class="py-2.5 px-3 font-mono font-bold">392</td>
+                                        <td class="py-2.5 px-3 font-semibold">Toss</td>
+                                        <td class="py-2.5 px-3 text-right font-mono font-bold text-indigo-600">₩ 5,000</td>
+                                        <td class="py-2.5 px-3">간편결제</td>
+                                        <td class="py-2.5 px-3 text-emerald-600 font-medium">결제 완료</td>
+                                        <td class="py-2.5 px-3 text-center"><a href="#" class="text-indigo-600 hover:underline">편집</a></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <h4 class="font-bold text-slate-800">할인 내역</h4>
+                        <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-slate-100 text-slate-600 uppercase text-[11px] border-b border-slate-200">
+                                    <tr>
+                                        <th class="py-2.5 px-3">no</th>
+                                        <th class="py-2.5 px-3">타입</th>
+                                        <th class="py-2.5 px-3">할인 금액</th>
+                                        <th class="py-2.5 px-3">사용 포인트 또는 할인율</th>
+                                        <th class="py-2.5 px-3">상세</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200 text-slate-400">
+                                    <tr>
+                                        <td colspan="5" class="py-6 text-center text-xs">할인 내역이 없습니다.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. 추가 정보 탭 -->
+                <div id="mtab-content-extra" class="space-y-4 hidden text-xs">
+                    <div class="font-bold text-slate-900 border-b border-slate-200 pb-2">여행 정보</div>
+                    <div class="space-y-3 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 items-start">
+                            <label class="font-semibold text-slate-600 sm:pt-2">차량 정보</label>
+                            <div class="sm:col-span-3">
+                                <textarea rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-xl" placeholder="차량 정보를 입력하세요."></textarea>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 items-start">
+                            <label class="font-semibold text-slate-600 sm:pt-2">운전자 정보</label>
+                            <div class="sm:col-span-3">
+                                <textarea rows="2" class="w-full px-3 py-2 border border-slate-300 rounded-xl" placeholder="운전자 정보를 입력하세요."></textarea>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2 items-start">
+                            <label class="font-semibold text-slate-600 sm:pt-2">코멘트</label>
+                            <div class="sm:col-span-3">
+                                <textarea rows="4" class="w-full px-3 py-2 border border-slate-300 rounded-xl" placeholder="코멘트 및 특이사항을 입력하세요."></textarea>
+                            </div>
+                        </div>
+                        <div class="pt-2 flex justify-start">
+                            <button type="button" onclick="alert('추가 정보가 저장되었습니다.')" class="px-5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl text-xs shadow-sm">저장</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. 메일 전송 탭 -->
+                <div id="mtab-content-email" class="space-y-4 text-xs hidden">
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                        <h4 class="font-bold text-slate-900">메일 전송</h4>
+                        <button type="button" onclick="alert('메일이 전송되었습니다.')" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-sm"><i class="fa-regular fa-paper-plane mr-1"></i> 전송</button>
+                    </div>
+
+                    <div class="space-y-3 bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-start">
+                            <label class="font-semibold text-slate-600 sm:pt-1 sm:col-span-2">받는 사람</label>
+                            <div class="sm:col-span-10 space-y-2">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" checked class="rounded border-slate-300 text-indigo-600">
+                                    <span>Culture Lounge(예약자) &lt;culturelounge&gt;</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" class="rounded border-slate-300 text-indigo-600">
+                                    <span>PEN YAYA(대표자) &lt;theidkja@gooail.com&gt;</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                            <label class="font-semibold text-slate-600 sm:col-span-2">제목</label>
+                            <div class="sm:col-span-10">
+                                <input type="text" placeholder="메일 제목을 입력하세요" class="w-full px-3 py-2 border border-slate-300 rounded-xl">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-start">
+                            <label class="font-semibold text-slate-600 sm:pt-2 sm:col-span-2">내용</label>
+                            <div class="sm:col-span-10 border border-slate-300 rounded-xl overflow-hidden bg-white">
+                                <div class="bg-slate-50 border-b border-slate-200 px-3 py-2 flex flex-wrap items-center gap-2 text-slate-600 text-xs">
+                                    <select class="px-2 py-1 border border-slate-300 rounded bg-white"><option>Quill Editor</option></select>
+                                    <button type="button" class="px-2.5 py-1 bg-indigo-50 text-indigo-600 font-semibold rounded border border-indigo-200"><i class="fa-solid fa-table mr-1"></i> 표 삽입</button>
+                                    <div class="h-4 w-px bg-slate-300 mx-1"></div>
+                                    <select class="px-2 py-1 border border-slate-300 rounded bg-white text-[11px]"><option>Normal</option></select>
+                                    <div class="h-4 w-px bg-slate-300 mx-1"></div>
+                                    <button class="p-1 hover:bg-slate-200 rounded font-bold"><i class="fa-solid fa-bold"></i></button>
+                                    <button class="p-1 hover:bg-slate-200 rounded italic"><i class="fa-solid fa-italic"></i></button>
+                                    <button class="p-1 hover:bg-slate-200 rounded underline"><i class="fa-solid fa-underline"></i></button>
+                                    <button class="p-1 hover:bg-slate-200 rounded line-through"><i class="fa-solid fa-strikethrough"></i></button>
+                                    <button class="p-1 hover:bg-slate-200 rounded"><i class="fa-solid fa-quote-right"></i></button>
+                                    <button class="p-1 hover:bg-slate-200 rounded"><i class="fa-solid fa-list-ul"></i></button>
+                                    <button class="p-1 hover:bg-slate-200 rounded"><i class="fa-solid fa-list-ol"></i></button>
+                                    <button class="p-1 hover:bg-slate-200 rounded"><i class="fa-solid fa-paperclip"></i></button>
+                                </div>
+                                <textarea rows="6" class="w-full p-3 focus:outline-none text-xs" placeholder="메일 내용을 작성하세요..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                            <label class="font-semibold text-slate-600 sm:col-span-2">파일첨부</label>
+                            <div class="sm:col-span-10">
+                                <button type="button" class="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium text-xs"><i class="fa-solid fa-folder-open mr-1"></i> 파일 선택</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2 pt-2">
+                        <h4 class="font-bold text-slate-900">전송 이력</h4>
+                        <div class="border border-slate-200 rounded-xl bg-white p-4 text-center text-slate-400 text-xs">
+                            전송된 이력이 없습니다.
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 단체 메일 전송 팝업 모달 -->
+    <div id="bulk-mail-modal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[92vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <!-- 모달 헤더 -->
+            <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between flex-shrink-0">
+                <div class="flex items-center gap-2 text-sm font-bold">
+                    <i class="fa-solid fa-envelope text-indigo-400"></i> 단체 메일 전송 <span class="text-xs font-normal text-slate-400">(전송 대상: 925명)</span>
+                </div>
+                <button type="button" onclick="closeBulkMailModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- 모달 바디 -->
+            <div class="p-6 overflow-y-auto space-y-6 flex-1 bg-slate-50 text-xs">
+                
+                <!-- 전송 대상 테이블 -->
+                <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-slate-800">전송 대상 (925/925)</span>
+                        <label class="flex items-center gap-1.5 cursor-pointer text-slate-600 font-medium">
+                            <input type="checkbox" class="rounded border-slate-300 text-indigo-600"> 동반자도 전부 포함
+                        </label>
+                    </div>
+                    <div class="border border-slate-200 rounded-lg overflow-hidden">
+                        <div class="max-h-40 overflow-y-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-slate-100 text-slate-600 uppercase text-[10px] sticky top-0 border-b border-slate-200">
+                                    <tr>
+                                        <th class="py-2 px-3 w-10 text-center"><input type="checkbox" checked class="rounded text-indigo-600"></th>
+                                        <th class="py-2 px-3">주문번호</th>
+                                        <th class="py-2 px-3">타입</th>
+                                        <th class="py-2 px-3">이름</th>
+                                        <th class="py-2 px-3">이메일</th>
+                                        <th class="py-2 px-3 text-right">전송 결과</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-200 text-slate-700">
+                                    <tr>
+                                        <td class="py-2 px-3 text-center"><input type="checkbox" checked class="rounded text-indigo-600"></td>
+                                        <td class="py-2 px-3 font-mono text-indigo-600">R20261013-1897</td>
+                                        <td class="py-2 px-3">대표자</td>
+                                        <td class="py-2.5 px-3 font-bold">LgwlPPni</td>
+                                        <td class="py-2.5 px-3 font-mono text-slate-500">lgwegimail@gsgel.com</td>
+                                        <td class="py-2.5 px-3 text-right text-slate-400">대기</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-2 px-3 text-center"><input type="checkbox" checked class="rounded text-indigo-600"></td>
+                                        <td class="py-2 px-3 font-mono text-indigo-600">R20261013-1896</td>
+                                        <td class="py-2 px-3">대표자</td>
+                                        <td class="py-2.5 px-3 font-bold">sgwrgw gDSS olina</td>
+                                        <td class="py-2.5 px-3 font-mono text-slate-500">Orgewgqbline97@oqeil.com</td>
+                                        <td class="py-2.5 px-3 text-right text-slate-400">대기</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-2 px-3 text-center"><input type="checkbox" checked class="rounded text-indigo-600"></td>
+                                        <td class="py-2 px-3 font-mono text-indigo-600">R20261012-1892</td>
+                                        <td class="py-2 px-3">대표자</td>
+                                        <td class="py-2.5 px-3 font-bold">pwegjkG</td>
+                                        <td class="py-2.5 px-3 font-mono text-slate-500">lkyknmi@pwrail.com</td>
+                                        <td class="py-2.5 px-3 text-right text-slate-400">대기</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 메인 영역: 상하 배치 -->
+                <div class="space-y-6">
+                    <!-- 1. 메일 작성 박스 -->
+                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-5 space-y-4">
+                        <div class="font-bold text-slate-900 border-b border-slate-100 pb-2">메일 작성</div>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                            <label class="font-semibold text-slate-600 sm:col-span-2">전송 템플릿</label>
+                            <div class="sm:col-span-10">
+                                <select class="w-full px-3 py-2 border border-slate-300 rounded-xl bg-white">
+                                    <option>SSOLUCK 기본 안내 템플릿</option>
+                                    <option>예약 확정 안내</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                            <label class="font-semibold text-slate-600 sm:col-span-2">제목</label>
+                            <div class="sm:col-span-10">
+                                <input type="text" value="[SSOLUCK] {{product_name}} Reservation Information" class="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-start">
+                            <label class="font-semibold text-slate-600 sm:pt-2 sm:col-span-2">내용</label>
+                            <div class="sm:col-span-10 border border-slate-300 rounded-xl overflow-hidden bg-white">
+                                <div class="bg-slate-50 border-b border-slate-200 px-3 py-2 flex flex-wrap items-center gap-1.5 text-slate-600">
+                                    <select class="px-2 py-1 border border-slate-300 rounded bg-white"><option>Quill Editor</option></select>
+                                    <button type="button" class="px-2 py-1 bg-indigo-50 text-indigo-600 font-semibold rounded border border-indigo-200"><i class="fa-solid fa-table mr-1"></i> 표 삽입</button>
+                                    <div class="h-4 w-px bg-slate-300 mx-1"></div>
+                                    <button class="p-1 hover:bg-slate-200 rounded font-bold"><i class="fa-solid fa-bold"></i></button>
+                                    <button class="p-1 hover:bg-slate-200 rounded italic"><i class="fa-solid fa-italic"></i></button>
+                                    <button class="p-1 hover:bg-slate-200 rounded underline"><i class="fa-solid fa-underline"></i></button>
+                                    <button class="p-1 hover:bg-slate-200 rounded"><i class="fa-solid fa-list-ul"></i></button>
+                                    <button class="p-1 hover:bg-slate-200 rounded"><i class="fa-solid fa-paperclip"></i></button>
+                                </div>
+                                <textarea rows="8" class="w-full p-3 focus:outline-none font-mono text-slate-700">Hello {{booking_name}},
+Here is your reservation information for {{product_name}}.
+Booking No.: {{booking_no}}
+Name: {{booking_name}}
+Travelers: {{traveler_count}}
+Product: {{product_name}}
+Thank you.</textarea>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                            <label class="font-semibold text-slate-600 sm:col-span-2">파일첨부</label>
+                            <div class="sm:col-span-10">
+                                <button type="button" class="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium">파일 선택</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. 미리보기 박스 -->
+                    <div class="bg-white border border-slate-200 rounded-xl shadow-sm p-5 space-y-3">
+                        <div class="font-bold text-slate-900 border-b border-slate-100 pb-2">미리보기</div>
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 text-slate-700 font-sans">
+                            <div class="text-[11px] text-indigo-600 font-bold">[Preview]</div>
+                            <div class="text-xs text-slate-500 font-mono">PENG YAXIN / theiapeng@gmail.com</div>
+                            <hr class="border-slate-200">
+                            <div class="font-bold text-slate-900 text-sm">[SSOLUCK] 2026 Culture Lounge Program Reservation Information</div>
+                            <div class="space-y-1 text-xs whitespace-pre-line text-slate-700">Hello PENG YAXIN,
+Here is your reservation information for 2026 Culture Lounge Program Reservation.
+Booking No.: R20261027-1975
+Name: PekjgIN
+Travelers: 1
+Product: 2026 Culture Lounge Program Reservation
+Thank you.</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 모달 푸터 -->
+            <div class="bg-white border-t border-slate-200 px-6 py-3 flex items-center justify-end gap-3 flex-shrink-0">
+                <button type="button" onclick="closeBulkMailModal()" class="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs">취소</button>
+                <button type="button" onclick="alert('단체 메일 발송이 시작되었습니다.')" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs shadow-sm flex items-center gap-1.5">
+                    <i class="fa-regular fa-paper-plane"></i> 발송하기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 메인 예약 목록 영역 -->
+    <main id="page-reservation" class="p-4 md:p-6">
+        <div class="max-w-7xl mx-auto space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
+                <h2 class="text-2xl font-bold text-slate-900">예약 목록</h2>
+                <span class="text-xs text-slate-500 flex items-center gap-1"><i class="fa-regular fa-clock"></i> 모든 시간은 KST (UTC+9) 기준입니다</span>
+            </div>
+
+            <!-- 검색 필터 박스 -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-5 space-y-4">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-slate-700">검색 필터</span>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="alert('엑셀 다운로드가 시작됩니다.')" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-excel"></i> <span>EXCEL 다운로드</span>
+                        </button>
+                        <button type="button" onclick="openBulkMailModal()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors flex items-center gap-1.5">
+                            <i class="fa-solid fa-envelope"></i> <span>단체 메일</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">통합 검색</label>
+                    <input type="text" placeholder="예약 ID, 예약자, 이메일, 전화번호, 상품명 등 전체 검색" class="w-full px-3.5 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">지불방식</label>
+                        <select class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white">
+                            <option>지불방식 전체</option>
+                            <option>계좌이체</option>
+                            <option>카드결제</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">예약일 범위</label>
+                        <div class="flex items-center gap-1">
+                            <input type="date" class="w-full px-2 py-2 text-xs border border-slate-300 rounded-lg">
+                            <span class="text-slate-400">~</span>
+                            <input type="date" class="w-full px-2 py-2 text-xs border border-slate-300 rounded-lg">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">여행일 범위</label>
+                        <div class="flex items-center gap-1">
+                            <input type="date" class="w-full px-2 py-2 text-xs border border-slate-300 rounded-lg">
+                            <span class="text-slate-400">~</span>
+                            <input type="date" class="w-full px-2 py-2 text-xs border border-slate-300 rounded-lg">
+                        </div>
+                    </div>
+                </div>
+                <div class="flex flex-col sm:flex-row items-center justify-between pt-3 border-t border-slate-100 gap-3">
+                    <div class="text-sm text-slate-600 font-medium">총 <span class="text-indigo-600 font-bold">925건</span></div>
+                    <div class="flex items-center gap-2">
+                        <button class="px-3.5 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg">초기화</button>
+                        <button class="px-4 py-2 text-sm bg-indigo-600 text-white font-medium rounded-lg">검색</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 필터 및 정렬 바 (상단 sticky 고정) -->
+        <div class="sticky top-0 z-30 bg-[#f8fafc] mt-4">
+            <div class="max-w-7xl mx-auto px-4 md:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                
+                <!-- 상태별 필터 버튼 영역 -->
+                <div class="flex items-center gap-2 flex-wrap py-1">
+                    <button class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white shadow-sm transition-colors">
+                        전체 (925)
+                    </button>
+                    <button class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 shadow-sm transition-colors">
+                        확정 (810)
+                    </button>
+                    <button class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-500 text-white hover:bg-amber-600 shadow-sm transition-colors">
+                        취소 요청 (75)
+                    </button>
+                    <button class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-500 text-white hover:bg-rose-600 shadow-sm transition-colors">
+                        취소 (40)
+                    </button>
+                </div>
+
+                <!-- 정렬 옵션 영역 -->
+                <div class="flex items-center gap-2 justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                    <span class="text-xs text-slate-500 whitespace-nowrap">정렬:</span>
+                    <select class="px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white">
+                        <option>최신 예약일순</option>
+                        <option>여행 임박일순</option>
+                        <option>상위 진열순</option>
+                    </select>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- 예약 목록 데이터 영역 -->
+        <div class="max-w-7xl mx-auto p-4 pt-1 space-y-4">
+            <!-- 모바일 카드형 뷰 -->
+            <div class="block lg:hidden space-y-3">
+                <script>
+                    for(let i=1; i<=50; i++) {
+                        const id = 'R202610' + (30 - (i%20)) + '-' + (1950 - i);
+                        const statusLabels = [
+                            '<span class="px-2.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-800 rounded-full">예약 확정</span>',
+                            '<span class="px-2.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 rounded-full">취소 요청</span>',
+                            '<span class="px-2.5 py-0.5 text-xs font-medium bg-rose-100 text-rose-800 rounded-full">예약 취소</span>'
+                        ];
+                        const currentStatus = statusLabels[i % 3];
+                        document.write(`
+                            <div onclick="openModal('${id}')" class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm space-y-3 cursor-pointer hover:border-indigo-400 transition-colors">
+                                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                                    <span class="font-mono text-xs font-semibold text-indigo-600">${id}</span>
+                                    ${currentStatus}
+                                </div>
+                                <div class="space-y-1.5 text-sm">
+                                    <div class="font-bold text-slate-900 text-base">Standard VIP Tour Package #${i}</div>
+                                    <div class="flex justify-between text-xs text-slate-500">
+                                        <span>예약자: User_${i} (인원: ${(i%4)+1}명)</span>
+                                        <span>지불: ${i%2 === 0 ? '카드결제' : '계좌이체'}</span>
+                                    </div>
+                                    <div class="flex justify-between text-xs text-slate-500">
+                                        <span>예약일: 2026-10-10 12:00</span>
+                                        <span>여행일: 2026-11-05</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between pt-2 border-t border-slate-100 font-semibold text-sm">
+                                    <span class="text-slate-500 text-xs">총금액</span>
+                                    <span class="text-slate-900">₩ ${(i * 15000).toLocaleString()}</span>
+                                </div>
+                            </div>
+                        `);
+                    }
+                </script>
+            </div>
+
+            <!-- PC 테이블 뷰 -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden lg:block">
+                <div class="overflow-x-auto max-h-[700px]">
+                    <table class="w-full text-left border-collapse min-w-[1000px]">
+                        <thead class="sticky top-0 z-25 bg-slate-100 text-slate-600 text-xs uppercase border-b border-slate-200">
+                            <tr>
+                                <th class="py-3 px-4 bg-slate-100 whitespace-nowrap">NO</th>
+                                <th class="py-3 px-4 bg-slate-100 whitespace-nowrap">예약 날짜</th>
+                                <th class="py-3 px-4 bg-slate-100 whitespace-nowrap">여행날짜</th>
+                                <th class="py-3 px-4 bg-slate-100 whitespace-nowrap">상품 명</th>
+                                <th class="py-3 px-4 bg-slate-100 whitespace-nowrap">예약자</th>
+                                <th class="py-3 px-4 bg-slate-100 whitespace-nowrap">총금액</th>
+                                <th class="py-3 px-4 bg-slate-100 whitespace-nowrap">지불방식</th>
+                                <th class="py-3 px-4 bg-slate-100 whitespace-nowrap text-center">예약상태</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200 text-sm text-slate-700">
+                            <script>
+                                for(let i=1; i<=50; i++) {
+                                    const id = 'R202610' + (30 - (i%20)) + '-' + (1950 - i);
+                                    const colors = ['bg-emerald-500', 'bg-amber-500', 'bg-rose-500'];
+                                    const names = ['예약 확정', '취소 요청', '예약 취소'];
+                                    document.write(`
+                                        <tr onclick="openModal('${id}')" class="hover:bg-slate-50 cursor-pointer">
+                                            <td class="py-3 px-4 font-mono text-xs text-slate-500 whitespace-nowrap">${id}</td>
+                                            <td class="py-3 px-4 whitespace-nowrap">2026-10-10 12:00</td>
+                                            <td class="py-3 px-4 whitespace-nowrap">2026-11-05</td>
+                                            <td class="py-3 px-4 font-medium text-slate-900 whitespace-nowrap">Standard VIP Tour Package #${i}</td>
+                                            <td class="py-3 px-4 whitespace-nowrap">User_${i}</td>
+                                            <td class="py-3 px-4 whitespace-nowrap">₩ ${(i * 15000).toLocaleString()}</td>
+                                            <td class="py-3 px-4 whitespace-nowrap">${i%2 === 0 ? '카드결제' : '계좌이체'}</td>
+                                            <td class="py-3 px-4 text-center whitespace-nowrap"><span title="${names[i%3]}" class="w-3 h-3 rounded-full ${colors[i%3]} inline-block"></span></td>
+                                        </tr>
+                                    `);
+                                }
+                            </script>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 모달 및 피드백 제어 스크립트 -->
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            switchModalTab('info');
+        });
+
+        function openModal(bookingId) {
+            document.getElementById('modal-id').innerText = bookingId;
+            document.getElementById('detail-modal').classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+            switchModalTab('info');
+
+            // 🌟 메인 창(index.html)으로 모달이 열렸음을 알림
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'MODAL_STATE_CHANGED', isOpen: true }, '*');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('detail-modal').classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+
+            // 🌟 모달 내부의 마커들 즉시 청소
+            document.querySelectorAll('.feedback-star-marker').forEach(el => el.remove());
+
+            // 🌟 메인 창(index.html)으로 모달이 닫혔음을 알림
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'MODAL_STATE_CHANGED', isOpen: false }, '*');
+            }
+        }
+
+        function openBulkMailModal() {
+            document.getElementById('bulk-mail-modal').classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+        }
+
+        function closeBulkMailModal() {
+            document.getElementById('bulk-mail-modal').classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+        }
+
+        function switchModalTab(tabName) {
+            const tabs = ['info', 'manifest', 'payment', 'extra', 'email'];
+            tabs.forEach(t => {
+                const contentEl = document.getElementById(`mtab-content-${t}`);
+                const btnEl = document.getElementById(`mtab-btn-${t}`);
+                if (contentEl) contentEl.classList.add('hidden');
+                if (btnEl) btnEl.className = "py-3 hover:text-white transition-colors whitespace-nowrap";
+            });
+            
+            const activeContent = document.getElementById(`mtab-content-${tabName}`);
+            const activeBtn = document.getElementById(`mtab-btn-${tabName}`);
+            if (activeContent) activeContent.classList.remove('hidden');
+            if (activeBtn) activeBtn.className = "py-3 text-white font-medium border-b-2 border-indigo-500 whitespace-nowrap";
+
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({ type: 'MODAL_TAB_CHANGED', tabName: tabName }, '*');
+            }
+        }
+
+        window.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeModal();
+                closeBulkMailModal();
+            }
+        });
+
+        // ==========================================
+        // 피드백 기능 연동 (부모 창 통신 및 클릭 가로채기)
+        // ==========================================
+        let isFeedbackModeActive = false;
+
+        document.addEventListener('click', function(e) {
+            if (!isFeedbackModeActive) return; 
+
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+
+            const target = e.target;
+            const tagName = target.tagName.toLowerCase();
+            const text = target.innerText ? target.innerText.substring(0, 20) : '';
+
+            // 현재 팝업 모달이 열려 있는 상태에서 클릭된 것인지 판단
+            const isModalOpen = !document.getElementById('detail-modal').classList.contains('hidden');
+
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'IFRAME_ELEMENT_CLICKED',
+                    tagName: tagName,
+                    previewText: text,
+                    selector: getCssSelector(target),
+                    isModal: isModalOpen
+                }, '*');
+            }
+        }, true);
+
+        function getCssSelector(el) {
+            if (!el || el === document.body) return 'body';
+            let path = [];
+            while (el && el.nodeType === Node.ELEMENT_NODE) {
+                let selector = el.tagName.toLowerCase();
+                if (el.id) {
+                    selector += '#' + el.id;
+                    path.unshift(selector);
+                    break;
+                } else {
+                    let sib = el, nth = 1;
+                    while ((sib = sib.previousElementSibling)) {
+                        if (sib.tagName.toLowerCase() === selector) nth++;
+                    }
+                    if (nth > 1) selector += `:nth-of-type(${nth})`;
+                }
+                path.unshift(selector);
+                el = el.parentElement;
+            }
+            return path.join(' > ');
+        }
+        window.addEventListener('message', function(event) {
+            if (event.data && typeof event.data.feedbackMode !== 'undefined') {
+                isFeedbackModeActive = event.data.feedbackMode;
+                if (isFeedbackModeActive) {
+                    document.body.classList.add('feedback-mode');
+                } else {
+                    document.body.classList.remove('feedback-mode');
+                }
+            }
+            if (event.data && event.data.type === 'FOCUS_IFRAME_MARKER') {
+                const feedbackId = event.data.feedbackId;
+                const targetMarker = document.querySelector(`.feedback-star-marker[data-id="${feedbackId}"]`);
+                
+                if (targetMarker) {
+                    targetMarker.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // iframe 내부에서 확실하게 애니메이션 리셋 및 리플로우 실행
+                    targetMarker.classList.remove('marker-highlight-anim');
+                    void targetMarker.offsetWidth; // iframe 내부 DOM 리플로우 강제 유발
+                    targetMarker.classList.add('marker-highlight-anim');
+
+                    setTimeout(() => {
+                        targetMarker.classList.remove('marker-highlight-anim');
+                    }, 2000);
+                }
+            }
+        });
+        
+        // 부모 창으로부터 툴팁 표시/숨김 신호 및 모달 열림 상태 수신 -> 빨간 별표 마커로 렌더링
+        window.addEventListener('message', function(event) { return;
+            if (event.data && event.data.type === 'SHOW_STAR_MARKERS') {
+                const show = event.data.show;
+                const isModalOpen = event.data.isModalOpen || false;
+                
+                document.querySelectorAll('.feedback-star-marker').forEach(el => el.remove());
+
+                if (show) {
+                    let feedbacks = JSON.parse(localStorage.getItem('ssoluck_interactive_feedbacks') || '[]');
+                    const activePage = location.pathname.split('/').pop() || 'reservation.html';
+                    const currentFeedbacks = feedbacks.filter(item => item.pageUrl === activePage && !item.completed);
+
+                    currentFeedbacks.forEach(item => {
+                        if (!item.selector) return;
+
+                        // 모달 열림/닫힘 상태에 따른 툴팁 노출 조건 검사
+                        // if (item.isModal && !isModalOpen) return;
+                        // if (!item.isModal && isModalOpen) return;
+
+                        try {
+                            const targetEl = document.querySelector(item.selector);
+                            if (targetEl) {
+                                const rect = targetEl.getBoundingClientRect();
+                                if (rect.width > 0 && rect.height > 0) {
+                                    const marker = document.createElement('div');
+                                    marker.className = item.isModal ? 'feedback-star-marker feedback-star-marker-modal' : 'feedback-star-marker';
+                                    marker.innerHTML = `<i class="fa-solid fa-star text-[10px]"></i><div class="feedback-hover-tooltip">${item.content}</div>`;
+                                    
+                                    marker.style.top = (window.scrollY + rect.top + rect.height / 2) + 'px';
+                                    marker.style.left = (window.scrollX + rect.left + rect.width / 2) + 'px';
+
+                                    // 마커 클릭 시 부모 창(index.html)으로 포커스 요청 메시지 전송
+                                    marker.onclick = function(e) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        if (window.parent && window.parent !== window) {
+                                            window.parent.postMessage({
+                                                type: 'FOCUS_FEEDBACK_ITEM',
+                                                feedbackId: item.id
+                                            }, '*');
+                                        }
+                                    };
+                                    document.body.appendChild(marker);
+                                }
+                            }
+                        } catch (e) {
+                            console.log('iframe 별표 마커 렌더링 오류:', e);
+                        }
+                    });
+                }
+            }
+        });
+    </script>
+</body>
+</html>

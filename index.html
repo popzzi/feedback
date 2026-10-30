@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>[mockup] SSOLUCK 통합관리자센터</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter 적용 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        @media (max-width: 1023px) {
+            #main-header { transition: transform 0.25s ease-in-out, opacity 0.25s ease-in-out; }
+        }
+
+        /* 피드백 모드 활성화 시 커서 및 호버 효과 */
+        body.feedback-mode *:not(#feedback-widget-container):not(#feedback-widget-container *) { cursor: crosshair !important; }
+        body.feedback-mode *:not(#feedback-widget-container):not(#feedback-widget-container *):hover { outline: 2px dashed #6366f1 !important; outline-offset: 2px; }
+
+        /* 뷰포트 기준 fixed 좌표계 적용된 빨간 별표 피드백 마커 */
+        .feedback-star-marker {
+            position: absolute;
+            z-index: 90;
+            width: 24px;
+            height: 24px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4);
+            cursor: pointer;
+            transform: translate(-50%, -50%);
+            transition: transform 0.2s ease;
+        }
+        .feedback-star-marker:hover {
+            transform: translate(-50%, -50%) scale(1.2);
+            z-index: 70;
+        }
+
+        /* 모달 내부 별표 마커 (더 높은 z-index 부여) */
+        .feedback-star-marker-modal {
+            z-index: 70;
+        }
+
+        /* 별표 마커에 마우스 호버 시 나타나는 상세 툴팁 카드 */
+        .feedback-hover-tooltip {
+            position: absolute;
+            bottom: 130%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgb(15 23 42 / 95%);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            width: max-content;
+            max-width: 220px;
+            white-space: pre-line;        
+            word-break: break-all;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            z-index: 80;
+        }
+        .feedback-star-marker:hover .feedback-hover-tooltip {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .feedback-star-marker.tooltip-bottom .feedback-hover-tooltip {
+            bottom: auto;
+            top: 100%;
+            margin-bottom: 0;
+            margin-top: 6px;
+        }
+        .feedback-content-text {
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        /* 피드백 목록 내 특정 항목 포커스 강조 스타일 */
+        .feedback-item-highlight {
+            border-color: #6366f1 !important;
+            background-color: #eef2ff !important;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+            transition: all 0.3s ease;
+        }
+        @keyframes marker-bounce-highlight {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.6); background-color: #6366f1; }
+        }
+        .marker-highlight-anim {
+            animation: marker-bounce-highlight 0.6s ease-in-out 3;
+            z-index: 999 !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased overflow-hidden">
+
+    <!-- 모바일 오버레이 배경 -->
+    <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-900/50 z-40 hidden lg:hidden"></div>
+
+    <!-- 전체 화면 세로 분할 컨테이너 -->
+    <div class="flex flex-col h-screen overflow-hidden">
+        
+        <!-- 상단 영역: 사이드바 + 메인 콘텐츠 -->
+        <div class="flex flex-1 overflow-hidden">
+            
+            <!-- 좌측 사이드바 패널 -->
+            <aside id="sidebar" class="bg-slate-900 text-slate-300 w-64 flex-shrink-0 flex flex-col transition-all duration-300 ease-in-out z-50 fixed lg:static inset-y-0 left-0 -translate-x-full lg:translate-x-0 overflow-x-hidden">
+                <div class="h-16 flex items-center justify-between px-5 bg-slate-950 flex-shrink-0">
+                    <span class="sidebar-text text-xl font-bold tracking-wider text-white">SSOLUCK</span>
+                    <button onclick="toggleSidebar()" class="text-slate-400 hover:text-white focus:outline-none">
+                        <i class="fa-solid fa-bars text-lg"></i>
+                    </button>
+                </div>
+                
+                <nav class="flex-1 overflow-y-auto overflow-x-hidden py-4 px-3 space-y-1 text-sm">
+                    <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 text-slate-300 transition-colors whitespace-nowrap">
+                        <i class="fa-solid fa-headset w-5 text-center flex-shrink-0"></i>
+                        <span class="sidebar-text truncate">고객 상담 예약 & 결제 관리</span>
+                    </a>
+
+                    <!-- 예약 & 결제 관리 그룹 -->
+                    <div class="space-y-1">
+                        <button onclick="toggleSubmenu('submenu-reservation')" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-slate-800 text-slate-300 transition-colors whitespace-nowrap">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-calendar-days w-5 text-center flex-shrink-0"></i>
+                                <span class="sidebar-text truncate">예약 & 결제 관리</span>
+                            </div>
+                            <i id="icon-submenu-reservation" class="fa-solid fa-chevron-down text-xs transition-transform duration-200 sidebar-text"></i>
+                        </button>
+                        <div id="submenu-reservation" class="pl-9 space-y-1 sidebar-text">
+                            <a href="#" onclick="switchPage('reservation')" id="nav-reservation" class="flex items-center px-3 py-2 rounded-lg bg-indigo-600 text-white font-medium text-xs transition-colors whitespace-nowrap">
+                                <span class="truncate">전체 예약 목록</span>
+                            </a>
+                            <a href="#" class="flex items-center px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 text-xs transition-colors whitespace-nowrap">
+                                <span class="truncate">오늘의 예약</span>
+                            </a>
+                            <a href="#" class="flex items-center px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 text-xs transition-colors whitespace-nowrap">
+                                <span class="truncate">결제 목록</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- 상품 관리 그룹 -->
+                    <div class="space-y-1">
+                        <button onclick="toggleSubmenu('submenu-product')" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-slate-800 text-slate-300 transition-colors whitespace-nowrap">
+                            <div class="flex items-center gap-3">
+                                <i class="fa-solid fa-box-open w-5 text-center flex-shrink-0"></i>
+                                <span class="sidebar-text truncate">상품 관리</span>
+                            </div>
+                            <i id="icon-submenu-product" class="fa-solid fa-chevron-down text-xs transition-transform duration-200 sidebar-text"></i>
+                        </button>
+                        <div id="submenu-product" class="pl-9 space-y-1 sidebar-text hidden">
+                            <a href="#" onclick="switchPage('product')" id="nav-product" class="flex items-center px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 text-xs transition-colors whitespace-nowrap">
+                                <span class="truncate">판매 상품</span>
+                            </a>
+                            <a href="#" class="flex items-center px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 text-xs transition-colors whitespace-nowrap">
+                                <span class="truncate">상품 리뷰 관리</span>
+                            </a>
+                            <a href="#" class="flex items-center px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 text-xs transition-colors whitespace-nowrap">
+                                <span class="truncate">소셜 리뷰 관리</span>
+                            </a>
+                            <a href="#" class="flex items-center px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 text-xs transition-colors whitespace-nowrap">
+                                <span class="truncate">맞춤 견적 상품</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 text-slate-300 transition-colors whitespace-nowrap">
+                        <i class="fa-solid fa-percent w-5 text-center flex-shrink-0"></i>
+                        <span class="sidebar-text truncate">프로모션 관리</span>
+                    </a>
+                    <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 text-slate-300 transition-colors whitespace-nowrap">
+                        <i class="fa-solid fa-users-gear w-5 text-center flex-shrink-0"></i>
+                        <span class="sidebar-text truncate">회원 & 메일 관리</span>
+                    </a>
+                    <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 text-slate-300 transition-colors whitespace-nowrap">
+                        <i class="fa-solid fa-comments w-5 text-center flex-shrink-0"></i>
+                        <span class="sidebar-text truncate">게시판 관리</span>
+                    </a>
+                    <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 text-slate-300 transition-colors whitespace-nowrap">
+                        <i class="fa-solid fa-file-invoice-dollar w-5 text-center flex-shrink-0"></i>
+                        <span class="sidebar-text truncate">견적서 관리</span>
+                    </a>
+                    <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 text-slate-300 transition-colors whitespace-nowrap">
+                        <i class="fa-solid fa-concierge-bell w-5 text-center flex-shrink-0"></i>
+                        <span class="sidebar-text truncate">컨시어지 관리</span>
+                    </a>
+                    <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 text-slate-300 transition-colors whitespace-nowrap">
+                        <i class="fa-solid fa-gear w-5 text-center flex-shrink-0"></i>
+                        <span class="sidebar-text truncate">설정</span>
+                    </a>
+                </nav>
+            </aside>
+
+            <!-- 우측 전체 영역 -->
+            <div class="flex-1 flex flex-col h-full overflow-hidden min-w-0">
+                
+                <!-- 메인 헤더 -->
+                <header id="main-header" class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-6 z-10 flex-shrink-0 gap-2">
+                    <div class="flex items-center gap-3">
+                        <button onclick="toggleSidebar()" class="text-slate-600 hover:text-slate-900 focus:outline-none p-1 lg:hidden">
+                            <i class="fa-solid fa-bars text-xl"></i>
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-3 sm:gap-4 text-xs md:text-sm">
+                        <span class="font-medium text-slate-700 hidden sm:inline"><span class="text-indigo-600 font-semibold">hyejin Lee</span> 님</span>
+                        <div class="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1.5 rounded-lg text-slate-600 font-mono text-xs">
+                            <i class="fa-solid fa-stopwatch text-indigo-500"></i>
+                            <span>11:44 연장</span>
+                        </div>
+                        <a href="#" title="로그아웃" class="p-2 text-slate-600 hover:text-rose-600 hover:bg-slate-100 rounded-lg transition-colors">
+                            <i class="fa-solid fa-right-from-bracket text-base"></i>
+                        </a>
+                    </div>
+                </header>
+
+                <!-- 📌 [페이지 1] 전체 예약 목록 뷰 -->
+                <main id="page-reservation" class="flex-1 overflow-hidden bg-slate-50">
+                    <iframe id="iframe_reservation" src="reservation.html" class="w-full h-full border-0"></iframe>
+                </main>
+
+                <!-- 📌 [페이지 2] 상품 목록 뷰 -->
+                <main id="page-product" class="flex-1 overflow-y-auto hidden">
+                    <div class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+                        <div class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
+                            <h2 class="text-2xl font-bold text-slate-900">상품 목록</h2>
+                            <span class="text-xs text-slate-500 flex items-center gap-1"><i class="fa-regular fa-clock"></i> 모든 시간은 KST (UTC+9) 기준입니다</span>
+                        </div>
+
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-5 space-y-4">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">통합 검색</label>
+                                    <input type="text" placeholder="상품명, 상품 ID 입력" class="w-full px-3.5 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 mb-1">상품 유형</label>
+                                    <select class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                        <option>상품 유형 전체</option>
+                                        <option>FESTIVAL</option>
+                                        <option>SERVICE</option>
+                                        <option>TOUR</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col sm:flex-row items-center justify-between pt-3 border-t border-slate-100 gap-3">
+                                <div class="text-sm text-slate-600 font-medium">총 <span class="text-indigo-600 font-bold">180건</span></div>
+                                <div class="flex items-center gap-2">
+                                    <button class="px-3.5 py-2 text-sm bg-slate-100 text-slate-700 rounded-lg">초기화</button>
+                                    <button class="px-4 py-2 text-sm bg-indigo-600 text-white font-medium rounded-lg">검색</button>
+                                    <button onclick="switchPage('edit')" class="px-4 py-2 text-sm bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition-colors">상품 생성</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="sticky top-0 lg:static z-30 bg-white border-b border-slate-200 shadow-sm">
+                        <div class="max-w-7xl mx-auto px-4 md:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div class="flex items-center gap-2 overflow-x-auto py-1">
+                                <button class="px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 text-white whitespace-nowrap shadow-sm flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-white inline-block"></span>전체 상품 (180)
+                                </button>
+                                <button class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 whitespace-nowrap flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>노출중 (142)
+                                </button>
+                                <button class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 whitespace-nowrap flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-slate-400 inline-block"></span>숨김 (38)
+                                </button>
+                                <button class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 whitespace-nowrap flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-indigo-500 inline-block"></span>판매중 (120)
+                                </button>
+                                <button class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 whitespace-nowrap flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span>품절 (22)
+                                </button>
+                            </div>
+                            <div class="flex items-center gap-2 justify-end">
+                                <span class="text-xs text-slate-500 whitespace-nowrap">정렬:</span>
+                                <select class="px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white">
+                                    <option>상품명 오름차순</option>
+                                    <option>상품명 내림차순</option>
+                                    <option>가격 높은순</option>
+                                    <option>가격 낮은순</option>
+                                    <option>상품등록 최신순</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="max-w-7xl mx-auto p-4 md:p-6 space-y-4">
+                        <div class="block lg:hidden space-y-3">
+                            <script>
+                                const productTypes = ['FESTIVAL', 'SERVICE', 'TOUR'];
+                                const titles = [
+                                    '[Seoul Spring Festival] Fun Bucket List, Seoul Hot places',
+                                    'Gangnam One-Day Tour & K-pop Concert',
+                                    'Nagoya VIP Airport Protocol & City Tour',
+                                    'Sejong Smart DRT City Experience',
+                                    'Busan Haeundae Yacht & Luxury Dining',
+                                    'Jeju Healing Forest Walking & Tea Ceremony',
+                                    'Incheon Airport Express VIP Escort Service',
+                                    'Gyeongju Historical Heritage Night Tour',
+                                    'DMZ Security & Peace Tour Package',
+                                    'Seoul Traditional Market Gourmet Journey'
+                                ];
+                                for(let j=1; j<=10; j++) {
+                                    const pid = 'T26R' + (10 + j) + 'A' + (2000 + j * 15);
+                                    const type = productTypes[j % productTypes.length];
+                                    const isVisible = j % 3 !== 0;
+                                    const isSelling = j % 2 === 0;
+                                    const isRecommended = j % 4 === 0;
+                                    document.write(`
+                                        <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-sm space-y-3">
+                                            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                                                <a href="https://admin.ssoluck.com/products/${310 + j}" target="_blank" class="font-mono text-xs font-semibold text-indigo-600 hover:underline flex items-center gap-1">
+                                                    ${pid} <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                                                </a>
+                                                <div class="flex items-center gap-2">
+                                                    <button onclick="toggleMobileVisibility(this)" class="px-2.5 py-0.5 text-xs font-medium ${isVisible ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'} rounded-full transition-colors">
+                                                        ${isVisible ? '노출중' : '숨김'}
+                                                    </button>
+                                                    <button onclick="toggleMobileSelling(this)" class="px-2.5 py-0.5 text-xs font-medium ${isSelling ? 'bg-indigo-100 text-indigo-800' : 'bg-rose-100 text-rose-800'} rounded-full transition-colors">
+                                                        ${isSelling ? '판매중' : '품절'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div onclick="switchPage('edit')" class="space-y-1.5 text-sm cursor-pointer">
+                                                <div class="font-bold text-slate-900 text-base hover:text-indigo-600 transition-colors">${titles[j-1]}</div>
+                                                <div class="flex justify-between text-xs text-slate-500">
+                                                    <span>유형: ${type}</span>
+                                                    <span>가격: ₩ ${(j * 25000).toLocaleString()}</span>
+                                                </div>
+                                                <div class="flex items-center justify-between pt-1 text-xs text-slate-400">
+                                                    <span>판매 기간: 2026.05.01 ~ 2026.12.31</span>
+                                                    <label class="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700" onclick="event.stopPropagation()">
+                                                        <input type="checkbox" ${isRecommended ? 'checked' : ''} class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"> 추천
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `);
+                                }
+                            </script>
+                        </div>
+
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hidden lg:block">
+                            <div class="overflow-x-auto max-h-[700px]">
+                                <table class="w-full text-left border-collapse min-w-[1100px]">
+                                    <thead class="sticky top-0 z-25 bg-slate-100 text-slate-600 text-xs uppercase border-b border-slate-200">
+                                        <tr>
+                                            <th class="py-3 px-4 bg-slate-100 whitespace-nowrap">상품 ID</th>
+                                            <th class="py-3 px-4 bg-slate-100 whitespace-nowrap">상품 유형</th>
+                                            <th class="py-3 px-4 bg-slate-100 whitespace-nowrap">대표 이미지</th>
+                                            <th class="py-3 px-4 bg-slate-100 whitespace-nowrap">상품명</th>
+                                            <th class="py-3 px-4 bg-slate-100 whitespace-nowrap text-center">추천 여부</th>
+                                            <th class="py-3 px-4 bg-slate-100 whitespace-nowrap text-center">노출상태</th>
+                                            <th class="py-3 px-4 bg-slate-100 whitespace-nowrap text-center">판매상태</th>
+                                            <th class="py-3 px-4 bg-slate-100 whitespace-nowrap">판매 기간</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-200 text-sm text-slate-700">
+                                        <script>
+                                            for(let j=1; j<=10; j++) {
+                                                const pid = 'T26R' + (10 + j) + 'A' + (2000 + j * 15);
+                                                const type = productTypes[j % productTypes.length];
+                                                const isVisible = j % 3 !== 0;
+                                                const isSelling = j % 2 === 0;
+                                                const isRecommended = j % 4 === 0;
+                                                document.write(`
+                                                    <tr class="hover:bg-slate-50 transition-colors">
+                                                        <td class="py-3 px-4 font-mono text-xs whitespace-nowrap" onclick="event.stopPropagation()">
+                                                            <a href="https://admin.ssoluck.com/products/${310 + j}" target="_blank" class="text-indigo-600 font-semibold hover:underline inline-flex items-center gap-1">
+                                                                ${pid} <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                                                            </a>
+                                                        </td>
+                                                        <td onclick="switchPage('edit')" class="py-3 px-4 whitespace-nowrap cursor-pointer"><span class="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-xs">${type}</span></td>
+                                                        <td onclick="switchPage('edit')" class="py-3 px-4 whitespace-nowrap cursor-pointer"><div class="w-10 h-10 rounded-lg bg-slate-200 flex items-center justify-center"><i class="fa-regular fa-image text-slate-400"></i></div></td>
+                                                        <td onclick="switchPage('edit')" class="py-3 px-4 font-medium text-slate-900 whitespace-nowrap cursor-pointer hover:text-indigo-600">${titles[j-1]}</td>
+                                                        <td class="py-3 px-4 text-center whitespace-nowrap" onclick="event.stopPropagation()"><input type="checkbox" ${isRecommended ? 'checked' : ''} class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"></td>
+                                                        <td class="py-3 px-4 text-center whitespace-nowrap" onclick="event.stopPropagation()">
+                                                            <button onclick="togglePcVisibility(this)" class="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 inline-flex items-center gap-1.5 text-xs font-medium">
+                                                                <span class="w-2.5 h-2.5 rounded-full ${isVisible ? 'bg-emerald-500' : 'bg-slate-300'} inline-block"></span>
+                                                                <span>${isVisible ? '노출중' : '숨김'}</span>
+                                                            </button>
+                                                        </td>
+                                                        <td class="py-3 px-4 text-center whitespace-nowrap" onclick="event.stopPropagation()">
+                                                            <button onclick="togglePcSelling(this)" class="px-2.5 py-1 bg-slate-50 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200 inline-flex items-center gap-1.5 text-xs font-medium">
+                                                                <span class="w-2.5 h-2.5 rounded-full ${isSelling ? 'bg-indigo-500' : 'bg-rose-500'} inline-block"></span>
+                                                                <span>${isSelling ? '판매중' : '품절'}</span>
+                                                            </button>
+                                                        </td>
+                                                        <td onclick="switchPage('edit')" class="py-3 px-4 text-xs text-slate-500 whitespace-nowrap cursor-pointer">2026.05.01 ~ 2026.12.31</td>
+                                                    </tr>
+                                                `);
+                                            }
+                                        </script>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+
+                <!-- 📌 [페이지 3] 상품 상세 수정 뷰 -->
+                <main id="page-edit" class="flex-1 overflow-hidden hidden bg-slate-100">
+                    <iframe src="detail.html" class="w-full h-full border-0"></iframe>
+                </main>
+            </div>
+        </div>
+
+        <!-- [하단 고정 바 영역] -->
+        <footer id="feedback-widget-container" class="h-16 bg-slate-900 text-white px-6 flex items-center justify-between flex-shrink-0 z-50 border-t border-slate-800 shadow-lg">
+            <div id="feedback-list-backdrop" onclick="toggleFeedbackList()" class="fixed inset-0 bg-slate-900/30 backdrop-blur-[1px] z-40 hidden"></div>
+            <div class="flex items-center gap-2 text-xs font-medium">
+                <i class="fa-solid fa-comments text-indigo-400 text-sm"></i>
+                <span class="text-slate-300">UI 피드백 도구</span>
+            </div>
+            <div class="flex items-center gap-3 relative">
+                <!-- 피드백 목록 팝업 패널 -->
+                <div id="feedback-list-panel" class="absolute bottom-14 right-0 w-[700px] bg-white border border-slate-200 rounded-2xl shadow-2xl p-4 hidden flex-col max-h-[60vh] text-xs z-50 space-y-3 text-slate-800">
+                    <div class="flex items-center justify-between font-bold text-slate-900 border-b pb-2 flex-shrink-0">
+                        <span class="text-indigo-600">등록된 피드백 목록 (<span id="feedback-count">0</span>)</span>
+                        <div class="flex items-center gap-2">
+                            <button onclick="exportFeedbacksJson()" title="JSON 파일 내보내기" class="text-emerald-600 hover:text-emerald-700"><i class="fa-solid fa-file-arrow-down text-sm"></i></button>
+                            <label title="JSON 파일 불러오기" class="text-indigo-600 hover:text-indigo-700 cursor-pointer">
+                                <i class="fa-solid fa-file-arrow-up text-sm"></i>
+                                <input type="file" accept=".json" onchange="importFeedbacksJson(event)" class="hidden">
+                            </label>
+                            <button onclick="toggleFeedbackList()"><i class="fa-solid fa-xmark text-sm"></i></button>
+                        </div>
+                    </div>
+                    <div id="feedback-items-container" class="h-[50vh] overflow-y-auto space-y-2.5 flex-1 pr-1"></div>
+                </div>
+
+                <button id="feedback-view-btn" onclick="toggleFeedbackViewMode()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl shadow-sm font-bold text-xs flex items-center gap-1.5 transition-all" title="현재 화면에 피드백 빨간 별표 표시">
+                    <i class="fa-solid fa-eye"></i> <span>피드백 보기</span>
+                </button>
+
+                <button id="feedback-mode-btn" onclick="toggleFeedbackMode()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3.5 py-2 rounded-xl shadow-sm font-bold text-xs flex items-center gap-1.5 transition-all">
+                    <i class="fa-solid fa-highlighter text-indigo-400"></i> <span id="mode-btn-text">요소별 메모 모드 켜기</span>
+                </button>
+
+                <button onclick="toggleFeedbackList()" class="bg-indigo-600 hover:bg-indigo-700 text-white w-9 h-9 rounded-xl shadow-sm flex items-center justify-center relative transition-all" title="피드백 목록 보기">
+                    <i class="fa-solid fa-list-check text-xs"></i>
+                    <span id="feedback-badge" class="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center hidden font-bold">0</span>
+                </button>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- 메모 작성 모달 -->
+    <div id="feedback-input-modal" class="fixed inset-0 bg-slate-900/40 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5 space-y-3 text-xs">
+            <div class="flex items-center justify-between font-bold text-slate-900 border-b pb-2">
+                <span class="text-indigo-600"><i class="fa-solid fa-map-pin mr-1"></i> 선택한 요소에 피드백 남기기</span>
+                <button onclick="closeFeedbackInputModal()"><i class="fa-solid fa-xmark text-sm"></i></button>
+            </div>
+            <div id="selected-target-desc" class="p-2 bg-slate-100 rounded-lg text-slate-700 font-mono text-[11px] truncate"></div>
+            <textarea id="element-feedback-text" rows="4" class="w-full p-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="수정 요청 사항을 입력하세요..."></textarea>
+            <div class="flex justify-end gap-2">
+                <button onclick="closeFeedbackInputModal()" class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold">취소</button>
+                <button id="save-feedback-btn" onclick="saveElementFeedback()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold shadow-sm flex items-center gap-1.5">
+                    <span>저장하기</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let detailModalEl;
+        let globalFeedbacks = [];
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby2AekPgOWVIue7LZrRUVmne0K7snoX13ZfczUDVfY9ipTsMyhkQtQgZAU_WmJEoHbF/exec";
+
+        window.addEventListener('DOMContentLoaded', () => {
+            switchPage('reservation');
+            loadFeedbacks();
+
+            const myIframe = document.getElementById('iframe_reservation');
+            myIframe.addEventListener('load', () => {
+                const iframeDoc = myIframe.contentDocument || myIframe.contentWindow.document;
+                detailModalEl = iframeDoc.getElementById('detail-modal');
+            });
+        });
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            const sidebarTexts = document.querySelectorAll('.sidebar-text');
+            
+            if (window.innerWidth < 1024) {
+                sidebar.classList.toggle('-translate-x-full');
+                overlay.classList.toggle('hidden');
+            } else {
+                if (sidebar.classList.contains('w-64')) {
+                    sidebar.classList.remove('w-64');
+                    sidebar.classList.add('w-16');
+                    sidebarTexts.forEach(el => el.classList.add('hidden'));
+                } else {
+                    sidebar.classList.remove('w-16');
+                    sidebar.classList.add('w-64');
+                    setTimeout(() => {
+                        sidebarTexts.forEach(el => el.classList.remove('hidden'));
+                    }, 150);
+                }
+            }
+        }
+
+        function toggleSubmenu(id) {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar.classList.contains('w-16')) return;
+            const submenu = document.getElementById(id);
+            const icon = document.getElementById('icon-' + id);
+            submenu.classList.toggle('hidden');
+            if(icon) icon.classList.toggle('rotate-180');
+        }
+
+        function switchPage(pageType) {
+            const pageRes = document.getElementById('page-reservation');
+            const pageProd = document.getElementById('page-product');
+            const pageEdit = document.getElementById('page-edit');
+            const navRes = document.getElementById('nav-reservation');
+            const navProd = document.getElementById('nav-product');
+
+            pageRes.classList.add('hidden');
+            pageProd.classList.add('hidden');
+            pageEdit.classList.add('hidden');
+
+            if (pageType === 'reservation') {
+                pageRes.classList.remove('hidden');
+                navRes.className = "flex items-center px-3 py-2 rounded-lg bg-indigo-600 text-white font-medium text-xs transition-colors whitespace-nowrap";
+                if(navProd) navProd.className = "flex items-center px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 text-xs transition-colors whitespace-nowrap";
+            } else if (pageType === 'product') {
+                pageProd.classList.remove('hidden');
+                if(navProd) navProd.className = "flex items-center px-3 py-2 rounded-lg bg-indigo-600 text-white font-medium text-xs transition-colors whitespace-nowrap";
+                navRes.className = "flex items-center px-3 py-2 rounded-lg hover:bg-slate-800 text-slate-300 text-xs transition-colors whitespace-nowrap";
+            } else if (pageType === 'edit') {
+                pageEdit.classList.remove('hidden');
+            }
+
+            if (window.innerWidth < 1024) {
+                const sidebar = document.getElementById('sidebar');
+                if (!sidebar.classList.contains('-translate-x-full')) {
+                    toggleSidebar();
+                }
+            }
+
+            syncFeedbackModeToIframes();
+            
+            if (isFeedbackViewMode) {
+                isFeedbackViewMode = false;
+                toggleFeedbackViewMode();
+                renderParentStarMarkers();
+            }
+        }
+
+        function togglePcVisibility(btn) {
+            const dot = btn.querySelector('span:first-child');
+            const textSpan = btn.querySelector('span:last-child');
+            if (textSpan.innerText === '노출중') {
+                textSpan.innerText = '숨김';
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-slate-300 inline-block';
+            } else {
+                textSpan.innerText = '노출중';
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block';
+            }
+        }
+
+        function togglePcSelling(btn) {
+            const dot = btn.querySelector('span:first-child');
+            const textSpan = btn.querySelector('span:last-child');
+            if (textSpan.innerText === '판매중') {
+                textSpan.innerText = '품절';
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-rose-500 inline-block';
+            } else {
+                textSpan.innerText = '판매중';
+                dot.className = 'w-2.5 h-2.5 rounded-full bg-indigo-500 inline-block';
+            }
+        }
+
+        function toggleMobileVisibility(btn) {
+            if (btn.innerText.trim() === '노출중') {
+                btn.innerText = '숨김';
+                btn.className = 'px-2.5 py-0.5 text-xs font-medium bg-slate-100 text-slate-600 rounded-full transition-colors';
+            } else {
+                btn.innerText = '노출중';
+                btn.className = 'px-2.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-800 rounded-full transition-colors';
+            }
+        }
+
+        function toggleMobileSelling(btn) {
+            if (btn.innerText.trim() === '판매중') {
+                btn.innerText = '품절';
+                btn.className = 'px-2.5 py-0.5 text-xs font-medium bg-rose-100 text-rose-800 rounded-full transition-colors';
+            } else {
+                btn.innerText = '판매중';
+                btn.className = 'px-2.5 py-0.5 text-xs font-medium bg-indigo-100 text-indigo-800 rounded-full transition-colors';
+            }
+        }
+
+        let isFeedbackMode = false;
+        let isFeedbackViewMode = false;
+        let pendingTarget = null;
+
+        function syncFeedbackModeToIframes() {
+            document.querySelectorAll('iframe').forEach(iframe => {
+                try {
+                    iframe.contentWindow.postMessage({ feedbackMode: isFeedbackMode }, '*');
+                } catch(e) {}
+            });
+        }
+
+        function toggleFeedbackMode() {
+            isFeedbackMode = !isFeedbackMode;
+            if (isFeedbackMode && isFeedbackViewMode) toggleFeedbackViewMode();
+
+            const btn = document.getElementById('feedback-mode-btn');
+            const btnText = document.getElementById('mode-btn-text');
+            
+            if (isFeedbackMode) {
+                document.body.classList.add('feedback-mode');
+                if(btn) btn.className = "bg-indigo-600 text-white border border-indigo-600 px-3.5 py-2 rounded-xl shadow-sm font-bold text-xs flex items-center gap-1.5 transition-all";
+                if(btnText) btnText.innerText = "메모 모드 켜짐 (요소를 클릭하세요)";
+            } else {
+                document.body.classList.remove('feedback-mode');
+                if(btn) btn.className = "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3.5 py-2 rounded-xl shadow-sm font-bold text-xs flex items-center gap-1.5 transition-all";
+                if(btnText) btnText.innerText = "요소별 메모 모드 켜기";
+            }
+            syncFeedbackModeToIframes();
+        }
+
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'FOCUS_FEEDBACK_ITEM') {
+                focusFeedbackItem(event.data.feedbackId);
+            }
+            if (event.data && event.data.type === 'MODAL_STATE_CHANGED') {
+                if (isFeedbackViewMode) {
+                    renderParentStarMarkers();
+                }
+            }
+            if (event.data && event.data.type === 'MODAL_TAB_CHANGED') {
+                if (isFeedbackViewMode) {
+                    renderParentStarMarkers();
+                }
+            }
+            if (event.data && event.data.type === 'IFRAME_ELEMENT_CLICKED') {
+                const data = event.data;
+                pendingTarget = {
+                    tagName: data.tagName,
+                    innerText: data.previewText,
+                    selector: data.selector,
+                    isModal: data.isModal || false
+                };
+
+                const identifier = `[iframe > ${data.tagName}] "${data.previewText}..."`;
+                document.getElementById('selected-target-desc').innerText = identifier;
+                document.getElementById('element-feedback-text').value = '';
+                document.getElementById('feedback-input-modal').classList.remove('hidden');
+                document.getElementById('element-feedback-text').focus();
+
+                isFeedbackMode = false;
+                document.body.classList.remove('feedback-mode');
+                document.getElementById('feedback-mode-btn').className = "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3.5 py-2 rounded-xl shadow-sm font-bold text-xs flex items-center gap-1.5 transition-all";
+                document.getElementById('mode-btn-text').innerText = "요소별 메모 모드 켜기";
+                syncFeedbackModeToIframes();
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!isFeedbackMode) return;
+            if (e.target.closest('#feedback-widget-container') || e.target.closest('#feedback-input-modal')) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+
+            pendingTarget = e.target;
+            const tagName = pendingTarget.tagName.toLowerCase();
+            const identifier = pendingTarget.innerText ? `[${tagName}] "${pendingTarget.innerText.substring(0, 20)}..."` : `<${tagName}>`;
+            
+            document.getElementById('selected-target-desc').innerText = identifier;
+            document.getElementById('element-feedback-text').value = '';
+            document.getElementById('feedback-input-modal').classList.remove('hidden');
+            document.getElementById('element-feedback-text').focus();
+
+            toggleFeedbackMode();
+        }, true);
+
+        function closeFeedbackInputModal() {
+            document.getElementById('feedback-input-modal').classList.add('hidden');
+            pendingTarget = null;
+        }
+
+        function getCssSelector(el) {
+            if (!el || el === document.body) return 'body';
+            let path = [];
+            while (el && el.nodeType === Node.ELEMENT_NODE) {
+                let selector = el.tagName.toLowerCase();
+                if (el.id) {
+                    selector += '#' + el.id;
+                    path.unshift(selector);
+                    break;
+                } else {
+                    let sib = el, nth = 1;
+                    while ((sib = sib.previousElementSibling)) {
+                        if (sib.tagName.toLowerCase() === selector) nth++;
+                    }
+                    if (nth > 1) selector += `:nth-of-type(${nth})`;
+                }
+                path.unshift(selector);
+                el = el.parentElement;
+            }
+            return path.join(' > ');
+        }
+
+        async function saveElementFeedback() {
+            const text = document.getElementById('element-feedback-text').value.trim();
+            if (!text) { alert('메모 내용을 입력해주세요.'); return; }
+
+            const saveBtn = document.getElementById('save-feedback-btn');
+            const originalBtnHtml = saveBtn.innerHTML;
+            
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> 저장 중...`;
+
+            const selectorPath = pendingTarget.selector ? pendingTarget.selector : getCssSelector(pendingTarget);
+            let activePage = 'reservation.html';
+            if (!document.getElementById('page-product').classList.contains('hidden')) activePage = 'product.html';
+            if (!document.getElementById('page-edit').classList.contains('hidden')) activePage = 'detail.html';
+            
+            const isModalOpen = detailModalEl ? !detailModalEl.classList.contains('hidden') : false;
+
+            const newFeedback = {
+                id: Number(Date.now()),
+                pageUrl: activePage,
+                content: text,
+                tagName: pendingTarget ? pendingTarget.tagName.toLowerCase() : 'element',
+                previewText: pendingTarget ? (pendingTarget.innerText ? pendingTarget.innerText.substring(0, 15) : '영역') : '',
+                selector: selectorPath,
+                isModal: Boolean(isModalOpen || pendingTarget.isModal || false),
+                date: new Date().toLocaleTimeString(),
+                completed: false,
+                comments: []
+            };
+
+            globalFeedbacks.push(newFeedback);
+            renderFeedbackItemsOnly();
+            if (isFeedbackViewMode) renderParentStarMarkers();
+
+            try {
+                await syncAndSaveToSheet();
+                closeFeedbackInputModal();
+                alert('피드백이 성공적으로 저장되었습니다!');
+            } catch (err) {
+                console.error(err);
+                alert('저장 중 오류가 발생했습니다.');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalBtnHtml;
+            }
+        }
+
+        function toggleFeedbackViewMode() {
+            isFeedbackViewMode = !isFeedbackViewMode;
+            const viewBtn = document.getElementById('feedback-view-btn');
+
+            document.querySelectorAll('.feedback-star-marker').forEach(el => el.remove());
+
+            document.querySelectorAll('iframe').forEach(iframe => {
+                try {
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    if (iframeDoc) {
+                        iframeDoc.querySelectorAll('.feedback-star-marker').forEach(el => el.remove());
+                    }
+                } catch(e) {}
+            });
+
+            if (isFeedbackViewMode) {
+                if(viewBtn) viewBtn.classList.add('bg-indigo-700', 'ring-2', 'ring-indigo-300', 'shadow-inner');
+                renderParentStarMarkers();
+
+                const isDetailModalOpen = detailModalEl ? !detailModalEl.classList.contains('hidden') : false;
+                document.querySelectorAll('iframe').forEach(iframe => {
+                    try {
+                        iframe.contentWindow.postMessage({ type: 'SHOW_STAR_MARKERS', show: true, isModalOpen: isDetailModalOpen }, '*');
+                    } catch(e) {}
+                });
+            } else {
+                if(viewBtn) viewBtn.classList.remove('bg-indigo-700', 'ring-2', 'ring-indigo-300', 'shadow-inner');
+                document.querySelectorAll('iframe').forEach(iframe => {
+                    try {
+                        iframe.contentWindow.postMessage({ type: 'SHOW_STAR_MARKERS', show: false }, '*');
+                    } catch(e) {}
+                });
+            }
+        }
+
+        function renderParentStarMarkers() {
+            document.querySelectorAll('.feedback-star-marker').forEach(el => el.remove());
+            document.querySelectorAll('iframe').forEach(iframe => {
+                try {
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    if (iframeDoc) {
+                        iframeDoc.querySelectorAll('.feedback-star-marker').forEach(el => el.remove());
+                    }
+                } catch(e) {}
+            });
+
+            let activePage = 'reservation.html';
+            if (!document.getElementById('page-product').classList.contains('hidden')) {
+                activePage = 'product.html';
+            } else if (!document.getElementById('page-edit').classList.contains('hidden')) {
+                activePage = 'detail.html';
+            }
+
+            globalFeedbacks.filter(item => item.pageUrl === activePage && !item.completed).forEach(item => {
+                if (!item.selector) return;
+
+                try {
+                    let targetEl = null;
+                    targetEl = document.querySelector(item.selector);
+
+                    if (!targetEl) {
+                        const iframes = document.querySelectorAll('iframe');
+                        for (const iframe of iframes) {
+                            try {
+                                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                                if (iframeDoc) {
+                                    targetEl = iframeDoc.querySelector(item.selector);
+                                    if (targetEl) break;
+                                }
+                            } catch (err) {}
+                        }
+                    }
+
+                    if (targetEl) {
+                        const rect = targetEl.getBoundingClientRect();
+                        if (rect.width > 0 && rect.height > 0) {
+                            const ownerDoc = targetEl.ownerDocument;
+                            const marker = ownerDoc.createElement('div');
+                            
+                            const isNearTop = rect.top < 80;
+                            marker.className = (item.isModal ? 'feedback-star-marker feedback-star-marker-modal' : 'feedback-star-marker') + (isNearTop ? ' tooltip-bottom' : '');
+                            
+                            // 마커에 data-id 속성 부여 (목록 클릭 시 정확히 찾기 위함)
+                            marker.setAttribute('data-id', item.id);
+
+                            marker.innerHTML = `<i class="fa-solid fa-star text-[10px]"></i><div class="feedback-hover-tooltip">${item.content}</div>`;
+
+                            marker.style.top = (rect.top + ownerDoc.defaultView.pageYOffset + (rect.height / 2)) + 'px';
+                            marker.style.left = (rect.left + ownerDoc.defaultView.pageXOffset + (rect.width / 2)) + 'px';
+
+                            marker.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                focusFeedbackItem(item.id);
+                            });
+
+                            ownerDoc.body.appendChild(marker); 
+                        }
+                    }
+                } catch(e) {}
+            });
+        }
+
+        function focusFeedbackItem(feedbackId) {
+            const panel = document.getElementById('feedback-list-panel');
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                renderFeedbackItemsOnly();
+            }
+
+            setTimeout(() => {
+                const targetCard = document.getElementById(`feedback-card-${feedbackId}`);
+                if (targetCard) {
+                    targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    targetCard.classList.add('feedback-item-highlight');
+                    setTimeout(() => {
+                        targetCard.classList.remove('feedback-item-highlight');
+                    }, 2000);
+                }
+            }, 100);
+        }
+
+        async function loadFeedbacks() {
+            const container = document.getElementById('feedback-items-container');
+            if(container) {
+                container.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs"><i class="fa-solid fa-spinner fa-spin mr-1"></i> 시트에서 데이터를 불러오는 중...</div>`;
+            }
+
+            try {
+                const response = await fetch(APPS_SCRIPT_URL);
+                const data = await response.json();
+                
+                if (Array.isArray(data)) {
+                    globalFeedbacks = data;
+                } else if (data && Array.isArray(data.feedbacks)) {
+                    globalFeedbacks = data.feedbacks;
+                } else {
+                    globalFeedbacks = [];
+                }
+            } catch (err) {
+                console.error('피드백 데이터 로드 실패:', err);
+                globalFeedbacks = [];
+            }
+
+            renderFeedbackItemsOnly();
+        }
+
+        function renderFeedbackItemsOnly() {
+            const container = document.getElementById('feedback-items-container');
+            const badge = document.getElementById('feedback-badge');
+            const countSpan = document.getElementById('feedback-count');
+            if(!container) return;
+            
+            let feedbacks = globalFeedbacks;
+
+            feedbacks = feedbacks.map(item => {
+                let parsedComments = [];
+                try {
+                    let val = item.comments;
+
+                    if (Array.isArray(val)) {
+                        parsedComments = val;
+                    } else if (typeof val === 'string' && val.trim() !== '') {
+                        let raw = val.trim();
+
+                        if (raw.startsWith('"') && raw.endsWith('"')) {
+                            raw = raw.slice(1, -1);
+                        }
+                        
+                        raw = raw.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+
+                        let parsed = JSON.parse(raw);
+
+                        if (typeof parsed === 'string') {
+                            parsed = JSON.parse(parsed);
+                        }
+
+                        if (Array.isArray(parsed)) {
+                            parsedComments = parsed;
+                        }
+                    }
+                } catch (e) {
+                    console.error(`ID ${item.id} comments 정제/파싱 에러:`, e);
+                    parsedComments = [];
+                }
+
+                if (!Array.isArray(parsedComments)) {
+                    parsedComments = [];
+                }
+
+                return { ...item, comments: parsedComments };
+            });
+
+            if(countSpan) countSpan.innerText = feedbacks.length;
+
+            const incompleteCount = feedbacks.filter(item => !item.completed).length;
+            if (incompleteCount > 0) {
+                if(badge) { 
+                    badge.classList.remove('hidden'); 
+                    badge.innerText = incompleteCount; 
+                }
+            } else {
+                if(badge) badge.classList.add('hidden');
+            }
+
+            container.innerHTML = '';
+            if (feedbacks.length === 0) {
+                container.innerHTML = `<div class="text-center py-8 text-slate-400 text-xs">등록된 피드백이 없습니다.<br>메모 모드를 켜고 요소를 클릭해보세요!</div>`;
+                return;
+            }
+
+            feedbacks.forEach((item, index) => {
+                let commentsHtml = (item.comments || []).map((c, cIdx) => `
+                    <div class="bg-white p-1.5 rounded border border-slate-200 text-[11px] flex justify-between items-start">
+                        <div><strong class="text-indigo-600">${c.author || '운영자'}:</strong> ${c.text}</div>
+                        <button onclick="deleteComment(${item.id}, ${cIdx})" class="text-slate-300 hover:text-rose-500"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                `).join('');
+
+                // 피드백 카드에 cursor-pointer 및 hover 효과 추가
+                container.innerHTML += `
+                    <div id="feedback-card-${item.id}" data-id="${item.id}" class="feedback-card-item p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 transition-all cursor-pointer hover:border-indigo-400">
+                        <div class="flex items-center justify-between font-bold text-slate-900 text-[11px]">
+                            <label class="flex items-center gap-1.5 cursor-pointer">
+                                <input type="checkbox" ${item.completed ? 'checked' : ''} onchange="toggleComplete(${item.id})" class="rounded text-indigo-600">
+                                <span class="${item.completed ? 'line-through text-slate-400' : 'text-indigo-600'}">#${index + 1} (${item.pageUrl})</span>
+                            </label>
+                            <button onclick="deleteFeedback(${item.id})" class="text-slate-400 hover:text-rose-600"><i class="fa-solid fa-trash-can text-[10px]"></i></button>
+                        </div>
+                        <p class="text-slate-700 text-sm font-medium feedback-content-text ${item.completed ? 'line-through text-slate-400' : ''}">"${item.content}"</p>
+                        <div class="space-y-1 pt-1 border-t border-slate-200">
+                            ${commentsHtml}
+                            <div class="flex gap-1 pt-1">
+                                <input type="text" id="comment-input-${item.id}" placeholder="댓글 남기기..." class="flex-1 px-2 py-1 text-[11px] border border-slate-300 rounded bg-white">
+                                <button onclick="addComment(${item.id})" class="px-2 py-1 bg-slate-800 text-white rounded text-[10px]">등록</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        async function toggleComplete(id) {
+            globalFeedbacks = globalFeedbacks.map(f => f.id === id ? { ...f, completed: !f.completed } : f);
+            renderFeedbackItemsOnly();
+            if (isFeedbackViewMode) renderParentStarMarkers();
+            await syncAndSaveToSheet();
+        }
+
+        async function addComment(id) {
+            const input = document.getElementById(`comment-input-${id}`);
+            const text = input.value.trim();
+            if(!text) return;
+            
+            globalFeedbacks = globalFeedbacks.map(f => f.id === id ? { ...f, comments: [...(f.comments || []), { author: '개발/운영자', text, date: new Date().toLocaleTimeString() }] } : f);
+            renderFeedbackItemsOnly();
+            await syncAndSaveToSheet();
+        }
+
+        async function deleteComment(id, cIdx) {
+            globalFeedbacks = globalFeedbacks.map(f => f.id === id ? { ...f, comments: f.comments.filter((_, idx) => idx !== cIdx) } : f);
+            renderFeedbackItemsOnly();
+            await syncAndSaveToSheet();
+        }
+
+        function toggleFeedbackList() {
+            const panel = document.getElementById('feedback-list-panel');
+            const backdrop = document.getElementById('feedback-list-backdrop');
+            
+            if(panel) {
+                panel.classList.toggle('hidden');
+                if(backdrop) backdrop.classList.toggle('hidden'); 
+
+                if(!panel.classList.contains('hidden')) {
+                    renderFeedbackItemsOnly();
+                }
+            }
+        }
+
+        async function deleteFeedback(id) {
+            if (!confirm('정말 이 피드백을 삭제하시겠습니까?')) return;
+
+            globalFeedbacks = globalFeedbacks.filter(item => item.id !== id);
+            renderFeedbackItemsOnly();
+            
+            if (isFeedbackViewMode) {
+                renderParentStarMarkers();
+            }
+
+            await syncAndSaveToSheet();
+        }
+
+        function exportFeedbacksJson() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(globalFeedbacks || []));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "ssoluck_feedbacks.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importFeedbacksJson(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    globalFeedbacks = Array.isArray(imported) ? imported : [];
+                    renderFeedbackItemsOnly();
+                    if (isFeedbackViewMode) renderParentStarMarkers();
+                    await syncAndSaveToSheet();
+                    alert('피드백 데이터를 성공적으로 불러왔습니다!');
+                } catch(err) {
+                    alert('유효한 JSON 파일이 아닙니다.');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        async function syncAndSaveToSheet() {
+            try {
+                const payload = globalFeedbacks.map(f => ({
+                    ...f,
+                    comments: JSON.stringify(f.comments || [])
+                }));
+
+                await fetch(APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function focusMarkerOnPage(feedbackId) {
+            const targetFeedback = globalFeedbacks.find(f => f.id === feedbackId);
+            if (!targetFeedback) return;
+
+            let targetPageType = 'reservation';
+            if (targetFeedback.pageUrl.includes('product')) targetPageType = 'product';
+            else if (targetFeedback.pageUrl.includes('detail')) targetPageType = 'edit';
+
+            if (targetPageType === 'reservation') switchPage('reservation');
+            else if (targetPageType === 'product') switchPage('product');
+            else if (targetPageType === 'edit') switchPage('edit');
+
+            if (!isFeedbackViewMode) {
+                toggleFeedbackViewMode();
+            }
+
+            setTimeout(() => {
+                renderParentStarMarkers();
+
+                // 1. 먼저 메인 문서에 마커가 있는지 확인
+                let targetMarker = document.querySelector(`.feedback-star-marker[data-id="${targetFeedback.id}"]`);
+                
+                if (targetMarker) {
+                    // 메인 문서에 있는 마커일 경우
+                    targetMarker.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    targetMarker.classList.remove('marker-highlight-anim');
+                    void targetMarker.offsetWidth;
+                    targetMarker.classList.add('marker-highlight-anim');
+                    setTimeout(() => {
+                        targetMarker.classList.remove('marker-highlight-anim');
+                    }, 2000);
+                } else {
+                    // 2. 메인에 없다면 iframe 내부로 포커스 명령 전송
+                    document.querySelectorAll('iframe').forEach(iframe => {
+                        try {
+                            iframe.contentWindow.postMessage({ type: 'FOCUS_IFRAME_MARKER', feedbackId: targetFeedback.id }, '*');
+                        } catch(e) {}
+                    });
+                }
+            }, 300);
+        }
+
+        // 피드백 카드 클릭 이벤트 위임 리스너
+        document.addEventListener('click', (e) => {
+            const card = e.target.closest('.feedback-card-item');
+            if (card) {
+                if (e.target.closest('input') || e.target.closest('button') || e.target.closest('label')) {
+                    return;
+                }
+                
+                const feedbackId = Number(card.getAttribute('data-id'));
+                if (feedbackId) {
+                    focusMarkerOnPage(feedbackId);
+                }
+            }
+        });
+
+        window.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeFeedbackInputModal();
+                if(isFeedbackMode) toggleFeedbackMode();
+                if(isFeedbackViewMode) toggleFeedbackViewMode();
+            }
+        });
+    </script>
+</body>
+</html>

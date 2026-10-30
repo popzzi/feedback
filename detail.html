@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSOLUCK 통합관리자센터 - 상품 등록 및 상세 수정</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter 적용 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style> 
+        body { font-family: 'Inter', sans-serif; } 
+        
+        /* 피드백 모드 활성화 시 커서 및 호버 효과 */
+        body.feedback-mode * { cursor: crosshair !important; }
+        body.feedback-mode *:hover { outline: 2px dashed #6366f1 !important; outline-offset: 2px; }
+
+        /* 상호 인터랙션을 위한 호버 및 포커스(선택) 강조 스타일 */
+        .preview-block-item {
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .preview-block-item:hover {
+            border-color: #cbd5e1; /* slate-300 */
+            background-color: #f8fafc; /* slate-50 */
+        }
+        .preview-block-item.active-focus {
+            border-color: #6366f1 !important; /* indigo-500 */
+            background-color: #eef2ff !important; /* indigo-50 */
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+        .editor-card-item {
+            transition: all 0.2s ease;
+            border: 1px solid #e2e8f0;
+        }
+        .editor-card-item.active-focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+            background-color: #fafafa;
+        }
+
+        /* 뷰포트 고정형(fixed) 좌표계 적용된 빨간 별표 피드백 마커 */
+        .feedback-star-marker {
+            position: fixed;
+            z-index: 40;
+            width: 24px;
+            height: 24px;
+            background: #ef4444;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4);
+            cursor: pointer;
+            transform: translate(-50%, -50%);
+            transition: transform 0.2s ease;
+        }
+        .feedback-star-marker:hover { transform: translate(-50%, -50%) scale(1.2); z-index: 70; }
+        .feedback-star-marker-modal { z-index: 70; }
+
+        /* 별표 마커에 마우스 호버 시 나타나는 상세 툴팁 카드 */
+        .feedback-hover-tooltip {
+            position: absolute;
+            bottom: 130%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgb(15 23 42 / 95%);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            white-space: nowrap;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+            z-index: 80;
+        }
+        .feedback-star-marker:hover .feedback-hover-tooltip { opacity: 1; visibility: visible; }
+
+        @keyframes marker-bounce-highlight {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.6); background-color: #6366f1; }
+        }
+        .marker-highlight-anim {
+            animation: marker-bounce-highlight 0.6s ease-in-out 3;
+            z-index: 999 !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased p-3 md:p-6 min-h-screen flex flex-col">
+
+    <div class="max-w-[1700px] w-full mx-auto space-y-4 flex-1 flex flex-col">
+        
+        <!-- 상단 타이틀 및 탭 전환 / 액션 바 -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200 flex-shrink-0">
+            <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h2 class="text-base md:text-lg font-bold text-slate-900">상품 상세 정보 관리</h2>
+                    <span class="px-2 py-0.5 text-xs font-mono font-bold bg-indigo-50 text-indigo-600 rounded-md">T26R08A11318</span>
+                </div>
+                <p class="text-xs text-slate-500 mt-0.5"><i class="fa-regular fa-clock mr-1"></i> KST (UTC+9) 기준</p>
+            </div>
+            
+            <!-- 상단 탭 메뉴 및 액션 버튼 -->
+            <div class="flex items-center justify-between sm:justify-end gap-3 flex-wrap">
+                <div class="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+                    <button type="button" onclick="switchTab('setting')" id="tab-btn-setting" class="px-3.5 py-1.5 rounded-lg bg-white text-indigo-600 shadow-sm transition-all">기본·가격 설정</button>
+                    <button type="button" onclick="switchTab('editor')" id="tab-btn-editor" class="px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all">상세 에디터</button>
+                </div>
+
+                <div class="flex items-center gap-1.5">
+                    <button type="button" title="상품 삭제" class="w-9 h-9 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center transition-colors">
+                        <i class="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                    <button type="button" title="저장하기" class="h-9 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-sm">
+                        <i class="fa-solid fa-floppy-disk text-xs"></i> <span class="hidden sm:inline">저장하기</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- [탭 콘텐츠 1] 기본 정보 및 가격 설정 영역 -->
+        <div id="tab-content-setting" class="space-y-4">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                
+                <!-- 1. 기본 정보 설정 -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                        <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-circle-info text-indigo-600"></i> 기본 정보 설정
+                        </h3>
+                        <span class="text-[11px] text-slate-400">필수 및 부가 정보</span>
+                    </div>
+
+                    <div class="space-y-3 text-xs">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                            <span class="font-semibold text-slate-600">대표 이미지</span>
+                            <div class="sm:col-span-2 flex items-center gap-3">
+                                <div class="w-20 h-12 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-[10px] text-slate-400">배너 미리보기</div>
+                                <button type="button" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg text-xs shadow-sm">업로드</button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                            <span class="font-semibold text-slate-600">상품명</span>
+                            <input type="text" value="Sunchang Jangryu Festival 1-Day Tour" class="sm:col-span-2 px-3 py-1.5 border border-slate-300 rounded-xl font-bold text-slate-900">
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-start">
+                            <span class="font-semibold text-slate-600 pt-1">상품 간략 설명</span>
+                            <textarea rows="2" class="sm:col-span-2 px-3 py-1.5 border border-slate-300 rounded-xl" placeholder="간략한 소개 문구를 입력하세요."></textarea>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-start">
+                            <span class="font-semibold text-slate-600 pt-1">상품 정보 이미지</span>
+                            <div class="sm:col-span-2 grid grid-cols-4 gap-1.5">
+                                <div class="h-12 bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-[10px] text-slate-400">IMG 1</div>
+                                <div class="h-12 bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-[10px] text-slate-400">IMG 2</div>
+                                <div class="h-12 bg-slate-100 rounded border border-slate-200 flex items-center justify-center text-[10px] text-slate-400">IMG 3</div>
+                                <div class="h-12 border-2 border-dashed border-slate-300 rounded flex items-center justify-center text-slate-400 hover:bg-slate-50 cursor-pointer"><i class="fa-solid fa-plus text-xs"></i></div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                            <span class="font-semibold text-slate-600">시간 또는 기간 선택</span>
+                            <div class="sm:col-span-2 space-y-1">
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="time_type" class="text-indigo-600"> 시간 직접 입력</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="time_type" checked class="text-indigo-600"> 시간 없이 날짜만 선택</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="time_type" class="text-indigo-600"> 기간 선택</label>
+                                <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="time_type" class="text-indigo-600"> 시간대 선택 (시간대 입력)</label>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                            <span class="font-semibold text-slate-600">접수장소</span>
+                            <input type="text" value="T1, T2, VOCO" class="sm:col-span-2 px-3 py-1.5 border border-slate-300 rounded-xl">
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                            <span class="font-semibold text-slate-600">예약 마감 시간</span>
+                            <input type="text" placeholder="미설정시 15시간으로 설정됨" class="sm:col-span-2 px-3 py-1.5 border border-slate-300 rounded-xl placeholder-slate-400">
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                            <span class="font-semibold text-slate-600">재고 설정</span>
+                            <div onclick="openStockModal()" class="sm:col-span-2 px-3 py-1.5 border border-slate-300 rounded-xl bg-white hover:border-indigo-500 cursor-pointer flex items-center justify-between transition-colors shadow-sm group">
+                                <span id="stock-display-text" class="text-slate-500 font-medium">설정 없음</span>
+                                <i class="fa-solid fa-chevron-right text-slate-400 group-hover:text-indigo-600 text-xs transition-colors"></i>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-start">
+                            <span class="font-semibold text-slate-600 pt-1">입력 추가 항목</span>
+                            <div class="sm:col-span-2 grid grid-cols-2 gap-1.5 text-slate-700">
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600"> 항공편</label>
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600"> 출발지</label>
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600"> 도착지</label>
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600"> 국적</label>
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600"> 생년월일</label>
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600"> 성별</label>
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600"> 여권번호</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 가격 정보 설정 -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                        <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-won-sign text-emerald-600"></i> 가격 정보 <span class="text-xs font-normal text-slate-500">(2개 옵션)</span>
+                        </h3>
+                        <button type="button" class="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-lg">+ 옵션 추가</button>
+                    </div>
+
+                    <div class="flex items-center justify-between border-b border-slate-200 pb-1">
+                        <div class="flex items-center gap-3 text-xs font-bold text-indigo-600">
+                            <button type="button" class="pb-1 border-b-2 border-indigo-600">REGULAR PRICE</button>
+                            <button type="button" class="pb-1 text-slate-400 hover:text-slate-600">STUDENT SPECIAL</button>
+                        </div>
+                        <div class="flex items-center gap-3 text-xs font-semibold">
+                            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="opt_sale_status" checked class="text-indigo-600"> 판매</label>
+                            <label class="flex items-center gap-1 cursor-pointer"><input type="radio" name="opt_sale_status" class="text-indigo-600"> 품절</label>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3 text-xs">
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1 text-[11px] text-slate-600">
+                            <div class="font-bold text-slate-700"><i class="fa-solid fa-circle-exclamation text-amber-500 mr-1"></i> 여행 옵션으로 상품 유형 판별</div>
+                            <p>1. 수송 포함 여행 : traveler_count, luggage_count 포함</p>
+                            <p>2. 여행 (수송 미포함) : traveler_count 포함</p>
+                            <p>3. 기타 : traveler_count 없을 경우 (연락처만 수집)</p>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                            <span class="font-semibold text-slate-600">옵션명</span>
+                            <input type="text" value="Regular Price" class="sm:col-span-2 px-3 py-1.5 border border-slate-300 rounded-xl font-semibold">
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                            <span class="font-semibold text-slate-600">판매 가격 / 일반 가격</span>
+                            <div class="sm:col-span-2 grid grid-cols-2 gap-2">
+                                <input type="text" value="30,000" class="px-3 py-1.5 border border-slate-300 rounded-xl font-bold">
+                                <input type="text" value="30,000" class="px-3 py-1.5 border border-slate-300 rounded-xl font-bold">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                            <span class="font-semibold text-slate-600">간단 설명</span>
+                            <input type="text" value="One-day tour | Available Oct. 15-18" class="sm:col-span-2 px-3 py-1.5 border border-slate-300 rounded-xl">
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                            <span class="font-semibold text-slate-600">최대/최소 수량</span>
+                            <div class="sm:col-span-2 flex items-center gap-2">
+                                <input type="number" value="1" class="w-16 px-2 py-1 border border-slate-300 rounded-xl text-center font-bold">
+                                <input type="range" min="1" max="100" value="100" class="flex-1 accent-indigo-600">
+                                <span class="font-bold">100</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- [탭 콘텐츠 2] 상세 에디터 & 라이브 미리보기 영역 -->
+        <div id="tab-content-editor" class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start flex-1 hidden">
+            
+            <!-- [좌측 패널] 블록 에디터 (30% 너비 - 4컬럼) -->
+            <div class="lg:col-span-4 bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-cubes text-amber-600"></i> 블록 에디터
+                    </h3>
+                    <select id="block-selector" onchange="addBlock(this)" class="px-2.5 py-1 text-xs border border-slate-300 rounded-lg bg-slate-50 font-medium">
+                        <option value="">블록 선택</option>
+                        <option value="태그">태그</option>
+                        <option value="제목">제목</option>
+                        <option value="본문 단락">본문 단락</option>
+                        <option value="Bullet List">Bullet List</option>
+                        <option value="간단 갤러리">간단 갤러리</option>
+                        <option value="이미지 카드">이미지 카드</option>
+                        <option value="Itinerary">Itinerary</option>
+                        <option value="What's Included">What's Included</option>
+                        <option value="FAQ">FAQ</option>
+                        <option value="Video">Video</option>
+                        <option value="Meeting Point">Meeting Point</option>
+                    </select>
+                </div>
+
+                <div id="editor-blocks-container" class="space-y-3 max-h-[600px] overflow-y-auto pr-1"></div>
+            </div>
+
+            <!-- [우측 패널] 실시간 라이브 미리보기 화면 (70% 너비 - 8컬럼) -->
+            <div class="lg:col-span-8 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-4 sticky top-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-desktop text-indigo-600"></i> 라이브 미리보기 화면 (실시간 연동)
+                    </h3>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+                        <span class="text-xs font-semibold text-emerald-700">동기화 완료</span>
+                    </div>
+                </div>
+
+                <div id="preview-container" class="border border-slate-200 rounded-2xl p-6 bg-slate-50 space-y-4 max-h-[650px] overflow-y-auto shadow-inner"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- 재고 설정 상세 팝업 모달 -->
+    <div id="stock-modal" class="fixed inset-0 bg-slate-900/60 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+            <!-- 모달 헤더 -->
+            <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between flex-shrink-0">
+                <h3 class="font-bold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-boxes-stacked text-indigo-400"></i> 재고 상세 설정
+                </h3>
+                <button type="button" onclick="closeStockModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- 모달 바디 -->
+            <div class="p-6 space-y-4 text-xs sm:text-sm text-slate-700">
+                <div class="space-y-2">
+                    <label class="font-semibold text-slate-800 block">재고 관리 방식 선택</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center gap-2.5 p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">
+                            <input type="radio" name="stock_type" value="none" checked class="text-indigo-600 focus:ring-indigo-500">
+                            <div>
+                                <span class="font-bold text-slate-900 block">설정 없음 (무제한)</span>
+                                <span class="text-slate-500 text-xs">재고 수량 제한 없이 상시 예약이 가능합니다.</span>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-2.5 p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">
+                            <input type="radio" name="stock_type" value="limited" class="text-indigo-600 focus:ring-indigo-500">
+                            <div>
+                                <span class="font-bold text-slate-900 block">수량 제한 설정</span>
+                                <span class="text-slate-500 text-xs">날짜/옵션별 최대 예약 가능 인원을 지정합니다.</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="limited-stock-options" class="space-y-2 pt-2 hidden">
+                    <label class="font-semibold text-slate-700 block text-xs">회차/일별 기본 재고 수량</label>
+                    <input type="number" id="stock-limit-input" value="10" min="1" class="w-full px-3.5 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm">
+                </div>
+            </div>
+
+            <!-- 모달 푸터 -->
+            <div class="bg-slate-50 border-t border-slate-200 px-6 py-3 flex items-center justify-end gap-2 flex-shrink-0">
+                <button type="button" onclick="closeStockModal()" class="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-medium rounded-xl text-xs transition-colors">취소</button>
+                <button type="button" onclick="saveStockSettings()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl text-xs shadow-sm transition-colors">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 스크립트 모음 -->
+    <script>
+        const stockModal = document.getElementById('stock-modal');
+        const stockDisplayText = document.getElementById('stock-display-text');
+        const stockLimitInput = document.getElementById('stock-limit-input');
+        const limitedOptionsDiv = document.getElementById('limited-stock-options');
+
+        document.querySelectorAll('input[name="stock_type"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                if (e.target.value === 'limited') {
+                    limitedOptionsDiv.classList.remove('hidden');
+                } else {
+                    limitedOptionsDiv.classList.add('hidden');
+                }
+            });
+        });
+
+        function openStockModal() {
+            stockModal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+        }
+
+        function closeStockModal() {
+            stockModal.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+        }
+
+        function saveStockSettings() {
+            const selectedType = document.querySelector('input[name="stock_type"]:checked').value;
+            if (selectedType === 'none') {
+                stockDisplayText.innerText = "설정 없음";
+                stockDisplayText.className = "text-slate-500 font-medium";
+            } else {
+                const limitVal = stockLimitInput.value;
+                stockDisplayText.innerText = `수량 제한 설정 (회차당 최대 ${limitVal}명)`;
+                stockDisplayText.className = "text-indigo-600 font-bold";
+            }
+            closeStockModal();
+        }
+
+        let blocks = [
+            { id: 1, type: '태그', content: 'Day Tour, Round-trip transport' },
+            { id: 2, type: '제목', content: 'Sunchang Jangryu Festival 1-Day Tour' },
+            { id: 3, type: '본문 단락', content: 'Spend a day at the Sunchang Jangryu Festival, enjoying traditional Korean food culture and interactive fermentation workshops.' }
+        ];
+
+        let activeIndex = null;
+
+        function renderAll() {
+            renderEditor();
+            renderPreview();
+        }
+
+        function renderEditor() {
+            const container = document.getElementById('editor-blocks-container');
+            container.innerHTML = '';
+
+            blocks.forEach((block, index) => {
+                let inputHtml = '';
+                if (block.type === '본문 단락' || block.type === 'FAQ' || block.type === 'Itinerary') {
+                    inputHtml = `<textarea rows="3" id="editor-input-${index}" onfocus="highlightBlock(${index})" oninput="updateContent(${index}, this.value)" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg">${block.content}</textarea>`;
+                } else {
+                    inputHtml = `<input type="text" id="editor-input-${index}" value="${block.content}" onfocus="highlightBlock(${index})" oninput="updateContent(${index}, this.value)" class="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg">`;
+                }
+
+                const isActive = activeIndex === index;
+
+                container.innerHTML += `
+                    <div id="editor-card-${index}" class="editor-card-item rounded-xl p-3 bg-slate-50/70 space-y-1.5 ${isActive ? 'active-focus' : ''}">
+                        <div class="flex items-center justify-between text-[11px] font-bold text-indigo-600">
+                            <span><i class="fa-solid fa-cube mr-1"></i> ${block.type}</span>
+                            <div class="flex items-center gap-1 text-slate-400">
+                                <button type="button" onclick="moveBlock(${index}, -1)" class="p-1 hover:text-slate-700 ${index === 0 ? 'opacity-30 cursor-not-allowed' : ''}"><i class="fa-solid fa-arrow-up"></i></button>
+                                <button type="button" onclick="moveBlock(${index}, 1)" class="p-1 hover:text-slate-700 ${index === blocks.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}"><i class="fa-solid fa-arrow-down"></i></button>
+                                <button type="button" onclick="deleteBlock(${index})" class="p-1 hover:text-rose-600"><i class="fa-solid fa-trash-can"></i></button>
+                            </div>
+                        </div>
+                        ${inputHtml}
+                    </div>
+                `;
+            });
+        }
+
+        function renderPreview() {
+            const container = document.getElementById('preview-container');
+            container.innerHTML = '';
+
+            if (blocks.length === 0) {
+                container.innerHTML = `<div class="text-center py-20 text-slate-400 text-xs">등록된 블록이 없습니다.</div>`;
+                return;
+            }
+
+            blocks.forEach((block, index) => {
+                const isActive = activeIndex === index;
+                let contentHtml = '';
+
+                if (block.type === '태그') {
+                    contentHtml = `
+                        <div class="flex flex-wrap gap-1.5">
+                            ${block.content.split(',').map(tag => `<span class="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md">${tag.trim()}</span>`).join('')}
+                        </div>
+                    `;
+                } else if (block.type === '제목') {
+                    contentHtml = `<h4 class="text-2xl font-black text-slate-900">${block.content}</h4>`;
+                } else if (block.type === '본문 단락') {
+                    contentHtml = `<p class="text-sm text-slate-600 leading-relaxed">${block.content}</p>`;
+                } else if (block.type === 'Bullet List') {
+                    contentHtml = `<ul class="list-disc pl-5 text-xs text-slate-600 space-y-1"><li>${block.content.replace(/\n/g, '</li><li>')}</li></ul>`;
+                } else if (block.type === '간단 갤러리' || block.type === '이미지 카드' || block.type === 'Video') {
+                    contentHtml = `
+                        <div class="w-full h-32 rounded-xl bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs border border-slate-300">
+                            <i class="fa-solid fa-image mr-1.5"></i> [${block.type}] 미리보기 영역
+                        </div>
+                    `;
+                } else {
+                    contentHtml = `
+                        <div class="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+                            <span class="text-[10px] font-bold text-indigo-500 uppercase">${block.type}</span>
+                            <p class="text-xs text-slate-700">${block.content}</p>
+                        </div>
+                    `;
+                }
+
+                container.innerHTML += `
+                    <div data-index="${index}" onclick="focusBlock(${index})" class="preview-block-item p-3 rounded-xl ${isActive ? 'active-focus' : ''}">
+                        ${contentHtml}
+                    </div>
+                `;
+            });
+        }
+
+        function focusBlock(index) {
+            activeIndex = index;
+            renderAll();
+            const inputEl = document.getElementById(`editor-input-${index}`);
+            if (inputEl) {
+                inputEl.focus();
+                inputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+
+        function highlightBlock(index) {
+            activeIndex = index;
+            document.querySelectorAll('.editor-card-item').forEach((el, idx) => {
+                if (idx === index) el.classList.add('active-focus');
+                else el.classList.remove('active-focus');
+            });
+            document.querySelectorAll('.preview-block-item').forEach((el, idx) => {
+                if (idx === index) el.classList.add('active-focus');
+                else el.classList.remove('active-focus');
+            });
+        }
+
+        function moveBlock(index, direction) {
+            const targetIndex = index + direction;
+            if (targetIndex < 0 || targetIndex >= blocks.length) return;
+            const temp = blocks[index];
+            blocks[index] = blocks[targetIndex];
+            blocks[targetIndex] = temp;
+            renderAll();
+        }
+
+        function updateContent(index, value) {
+            blocks[index].content = value;
+            renderPreview();
+        }
+
+        function deleteBlock(index) {
+            blocks.splice(index, 1);
+            renderAll();
+        }
+
+        function addBlock(selectEl) {
+            const type = selectEl.value;
+            if (!type) return;
+            blocks.push({
+                id: Date.now(),
+                type: type,
+                content: `${type} 내용을 입력하세요.`
+            });
+            selectEl.value = "";
+            renderAll();
+        }
+
+        function switchTab(tabName) {
+            const settingContent = document.getElementById('tab-content-setting');
+            const editorContent = document.getElementById('tab-content-editor');
+            const settingBtn = document.getElementById('tab-btn-setting');
+            const editorBtn = document.getElementById('tab-btn-editor');
+
+            if (tabName === 'setting') {
+                settingContent.classList.remove('hidden');
+                editorContent.classList.add('hidden');
+                settingBtn.className = "px-3.5 py-1.5 rounded-lg bg-white text-indigo-600 shadow-sm transition-all";
+                editorBtn.className = "px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all";
+            } else {
+                settingContent.classList.add('hidden');
+                editorContent.classList.remove('hidden');
+                editorBtn.className = "px-3.5 py-1.5 rounded-lg bg-white text-indigo-600 shadow-sm transition-all";
+                settingBtn.className = "px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all";
+            }
+        }
+
+        window.onload = function() {
+            renderAll();
+        };
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeStockModal();
+            }
+        });
+
+        // ==========================================
+        // 피드백 기능 연동 (부모 창 통신 및 클릭 가로채기)
+        // ==========================================
+        let isFeedbackModeActive = false;
+
+        window.addEventListener('message', function(event) {
+            if (event.data && typeof event.data.feedbackMode !== 'undefined') {
+                isFeedbackModeActive = event.data.feedbackMode;
+                if (isFeedbackModeActive) {
+                    document.body.classList.add('feedback-mode');
+                } else {
+                    document.body.classList.remove('feedback-mode');
+                }
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!isFeedbackModeActive) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+
+            const target = e.target;
+            const tagName = target.tagName.toLowerCase();
+            const text = target.innerText ? target.innerText.substring(0, 20) : '';
+
+            // 재고 설정 모달(#stock-modal)이 열려 있는지 여부 체크
+            const isModalOpen = !document.getElementById('stock-modal').classList.contains('hidden');
+
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'IFRAME_ELEMENT_CLICKED',
+                    tagName: tagName,
+                    previewText: text,
+                    selector: getCssSelector(target),
+                    isModal: isModalOpen
+                }, '*');
+            }
+        }, true);
+
+        function getCssSelector(el) {
+            if (!el || el === document.body) return 'body';
+            let path = [];
+            while (el && el.nodeType === Node.ELEMENT_NODE) {
+                let selector = el.tagName.toLowerCase();
+                if (el.id) {
+                    selector += '#' + el.id;
+                    path.unshift(selector);
+                    break;
+                } else {
+                    let sib = el, nth = 1;
+                    while ((sib = sib.previousElementSibling)) {
+                        if (sib.tagName.toLowerCase() === selector) nth++;
+                    }
+                    if (nth > 1) selector += `:nth-of-type(${nth})`;
+                }
+                path.unshift(selector);
+                el = el.parentElement;
+            }
+            return path.join(' > ');
+        }
+
+        // 부모 창으로부터 툴팁 표시/숨김 신호 및 모달 열림 상태 수신 -> 빨간 별표 마커로 렌더링 (fixed 좌표계 적용)
+        window.addEventListener('message', function(event) { return;
+            if (event.data && event.data.type === 'SHOW_STAR_MARKERS') {
+                const show = event.data.show;
+                const isModalOpen = event.data.isModalOpen || false;
+                
+                document.querySelectorAll('.feedback-star-marker').forEach(el => el.remove());
+
+                if (show) {
+                    let feedbacks = JSON.parse(localStorage.getItem('ssoluck_interactive_feedbacks') || '[]');
+                    const activePage = location.pathname.split('/').pop() || 'detail.html';
+                    const currentFeedbacks = feedbacks.filter(item => item.pageUrl === activePage && !item.completed);
+
+                    currentFeedbacks.forEach(item => {
+                        if (!item.selector) return;
+
+                        // 모달 열림/닫힘 상태에 따른 툴팁 노출 조건 검사
+                        if (item.isModal && !isModalOpen) return;
+                        if (!item.isModal && isModalOpen) return;
+
+                        try {
+                            const targetEl = document.querySelector(item.selector);
+                            if (targetEl) {
+                                const rect = targetEl.getBoundingClientRect();
+                                if (rect.width > 0 && rect.height > 0) {
+                                    const marker = document.createElement('div');
+                                    marker.className = item.isModal ? 'feedback-star-marker feedback-star-marker-modal' : 'feedback-star-marker';
+                                    marker.innerHTML = `<i class="fa-solid fa-star text-[10px]"></i><div class="feedback-hover-tooltip">${item.content}</div>`;
+                                    
+                                    marker.style.top = (rect.top + rect.height / 2) + 'px';
+                                    marker.style.left = (rect.left + rect.width / 2) + 'px';
+
+                                    // 마커 클릭 시 부모 창(index.html)으로 포커스 요청 메시지 전송
+                                    marker.onclick = function(e) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        if (window.parent && window.parent !== window) {
+                                            window.parent.postMessage({
+                                                type: 'FOCUS_FEEDBACK_ITEM',
+                                                feedbackId: item.id
+                                            }, '*');
+                                        }
+                                    };
+                                    targetEl.appendChild(marker);
+                                }
+                            }
+                        } catch (e) {
+                            console.log('iframe 별표 마커 렌더링 오류:', e);
+                        }
+                    });
+                }
+            }
+        });
+    </script>
+</body>
+</html>
