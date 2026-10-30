@@ -423,7 +423,7 @@
 
         <!-- [하단 고정 바 영역] -->
         <footer id="feedback-widget-container" class="h-16 bg-slate-900 text-white px-6 flex items-center justify-between flex-shrink-0 z-50 border-t border-slate-800 shadow-lg">
-            <div id="feedback-list-backdrop" onclick="toggleFeedbackList()" class="fixed inset-0 bg-slate-900/30 backdrop-blur-[1px] z-40 hidden"></div>
+            <div id="feedback-list-backdrop" onclick="closeFeedbackList()" class="fixed inset-0 bg-slate-900/30 backdrop-blur-[1px] z-40 hidden"></div>
             <div class="flex items-center gap-2 text-xs font-medium">
                 <i class="fa-solid fa-comments text-indigo-400 text-sm"></i>
                 <span class="text-slate-300">UI 피드백 도구</span>
@@ -1037,16 +1037,32 @@
             await syncAndSaveToSheet();
         }
 
-        function toggleFeedbackList() {
+        function openFeedbackList() {
             const panel = document.getElementById('feedback-list-panel');
             const backdrop = document.getElementById('feedback-list-backdrop');
             
-            if(panel) {
-                panel.classList.toggle('hidden');
-                if(backdrop) backdrop.classList.toggle('hidden'); 
+            if (panel) panel.classList.remove('hidden');
+            if (backdrop) backdrop.classList.remove('hidden');
+            renderFeedbackItemsOnly();
+        }
 
-                if(!panel.classList.contains('hidden')) {
-                    renderFeedbackItemsOnly();
+        // 목록 닫기
+        function closeFeedbackList() {
+            const panel = document.getElementById('feedback-list-panel');
+            const backdrop = document.getElementById('feedback-list-backdrop');
+            
+            if (panel) panel.classList.add('hidden');
+            if (backdrop) backdrop.classList.add('hidden');
+        }
+
+        // 토글 버튼 클릭 시
+        function toggleFeedbackList() {
+            const panel = document.getElementById('feedback-list-panel');
+            if (panel) {
+                if (panel.classList.contains('hidden')) {
+                    openFeedbackList();
+                } else {
+                    closeFeedbackList();
                 }
             }
         }
