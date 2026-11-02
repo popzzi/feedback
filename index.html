@@ -77,11 +77,26 @@
             visibility: visible;
         }
         
+        /* 기존 툴팁 하단 표시용 클래스 */
         .feedback-star-marker.tooltip-bottom .feedback-hover-tooltip {
             bottom: auto;
             top: 100%;
             margin-bottom: 0;
             margin-top: 6px;
+        }
+
+        /* 우측 끝에 붙었을 때 툴팁이 왼쪽으로 펼쳐지도록 보정 */
+        .feedback-star-marker.tooltip-left .feedback-hover-tooltip {
+            left: auto;
+            right: 0;
+            transform: translateX(0);
+        }
+
+        /* 좌측 끝에 붙었을 때 툴팁이 오른쪽으로 펼쳐지도록 보정 */
+        .feedback-star-marker.tooltip-right .feedback-hover-tooltip {
+            left: 0;
+            right: auto;
+            transform: translateX(0);
         }
         .feedback-content-text {
             white-space: pre-wrap;
@@ -820,9 +835,12 @@
             });
 
             let activePage = 'reservation.html';
-            if (!document.getElementById('page-product').classList.contains('hidden')) {
+            const pageProd = document.getElementById('page-product');
+            const pageEdit = document.getElementById('page-edit');
+
+            if (pageProd && !pageProd.classList.contains('hidden')) {
                 activePage = 'product.html';
-            } else if (!document.getElementById('page-edit').classList.contains('hidden')) {
+            } else if (pageEdit && !pageEdit.classList.contains('hidden')) {
                 activePage = 'detail.html';
             }
 
@@ -830,8 +848,7 @@
                 if (!item.selector) return;
 
                 try {
-                    let targetEl = null;
-                    targetEl = document.querySelector(item.selector);
+                    let targetEl = document.querySelector(item.selector);
 
                     if (!targetEl) {
                         const iframes = document.querySelectorAll('iframe');
@@ -852,14 +869,32 @@
                             const ownerDoc = targetEl.ownerDocument;
                             const marker = ownerDoc.createElement('div');
                             
-                            const isNearTop = rect.top < 80;
-                            marker.className = (item.isModal ? 'feedback-star-marker feedback-star-marker-modal' : 'feedback-star-marker') + (isNearTop ? ' tooltip-bottom' : '');
-                            
-                            // 마커에 data-id 속성 부여 (목록 클릭 시 정확히 찾기 위함)
+                            const isNearTop = rect.top < 90; 
+                            const isNearRight = rect.right > (ownerDoc.defaultView.innerWidth - 150); 
+                            const isNearLeft = rect.left < 150; 
+
+                            let positionClasses = 'feedback-star-marker';
+                            if (item.isModal) positionClasses += ' feedback-star-marker-modal';
+                            if (isNearTop) positionClasses += ' tooltip-bottom';       
+                            if (isNearRight) positionClasses += ' tooltip-left';     
+                            if (isNearLeft) positionClasses += ' tooltip-right';     
+
+                            marker.className = positionClasses;
                             marker.setAttribute('data-id', item.id);
 
-                            marker.innerHTML = `<i class="fa-solid fa-star text-[10px]"></i><div class="feedback-hover-tooltip">${item.content}</div>`;
+                            let tooltipStyle = 'style="white-space: pre-line;"';
+                            if (isNearRight) {
+                                tooltipStyle = 'style="white-space: pre-line; left: auto; right: 0; transform: none;"';
+                            } else if (isNearLeft) {
+                                tooltipStyle = 'style="white-space: pre-line; left: 0; right: auto; transform: none;"';
+                            }
 
+                            marker.innerHTML = `
+                                <i class="fa-solid fa-star text-[10px]"></i>
+                                <div class="feedback-hover-tooltip" ${tooltipStyle}>${item.content}
+                                </div>
+                            `;
+                               
                             marker.style.top = (rect.top + ownerDoc.defaultView.pageYOffset + (rect.height / 2)) + 'px';
                             marker.style.left = (rect.left + ownerDoc.defaultView.pageXOffset + (rect.width / 2)) + 'px';
 
@@ -871,6 +906,8 @@
                             ownerDoc.body.appendChild(marker); 
                         }
                     }
+
+                    
                 } catch(e) {}
             });
         }
@@ -1111,7 +1148,7 @@
 
         async function syncAndSaveToSheet() {
             try {
-                // 🌟 comments를 이중 문자열화하지 않고 순수 객체(또는 배열) 형태로 전달
+                // comments를 이중 문자열화하지 않고 순수 객체(또는 배열) 형태로 전달
                 const payload = globalFeedbacks.map(f => ({
                     ...f,
                     comments: f.comments || [] 
