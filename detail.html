@@ -44,9 +44,9 @@
             background-color: #fafafa;
         }
 
-        /* 뷰포트 고정형(fixed) 좌표계 적용된 빨간 별표 피드백 마커 */
+        /* 빨간 별표 피드백 마커 스타일 */
         .feedback-star-marker {
-            position: fixed;
+            position: absolute;
             z-index: 40;
             width: 24px;
             height: 24px;
@@ -88,7 +88,7 @@
             z-index: 80;
         }
         .feedback-star-marker:hover .feedback-hover-tooltip { opacity: 1; visibility: visible; }
-
+        
         @keyframes marker-bounce-highlight {
             0%, 100% { transform: translate(-50%, -50%) scale(1); }
             50% { transform: translate(-50%, -50%) scale(1.6); background-color: #6366f1; }
@@ -133,6 +133,93 @@
 
         <!-- [탭 콘텐츠 1] 기본 정보 및 가격 설정 영역 -->
         <div id="tab-content-setting" class="space-y-4">
+            <!-- 🌟 [추가된 부분] 표시 설정 카드 -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-eye text-indigo-600"></i> 표시 설정
+                    </h3>
+                    <span class="text-[11px] text-slate-400">모든 언어타입에 공통으로 적용됩니다.</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <!-- 좌측 열 -->
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-3 gap-2 items-center">
+                            <span class="font-semibold text-slate-600">예약자 유형</span>
+                            <div class="col-span-2 flex items-center gap-4">
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="display_user_type" class="text-indigo-600"> 전체</label>
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="display_user_type" class="text-indigo-600"> 내국인 전용</label>
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="display_user_type" checked class="text-indigo-600"> 외국인 전용</label>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 items-center">
+                            <span class="font-semibold text-slate-600">메뉴</span>
+                            <select class="col-span-2 px-3 py-1.5 border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium">
+                                <option>DAY TRIP & ACTIVITIES</option>
+                                <option>FESTIVAL</option>
+                                <option>TOUR & ATTRACTION</option>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 items-center">
+                            <span class="font-semibold text-slate-600">진열순서</span>
+                            <input type="number" value="0" class="col-span-2 px-3 py-1.5 border border-slate-300 rounded-xl font-mono">
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 items-center">
+                            <span class="font-semibold text-slate-600">카테고리</span>
+                            <div class="col-span-2 flex items-center gap-2">
+                                <select class="flex-1 px-3 py-1.5 border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                    <option>카테고리 선택</option>
+                                    <option selected>Festival & Culture</option>
+                                    <option>City Tour</option>
+                                    <option>VIP Protocol</option>
+                                </select>
+                                <button type="button" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold whitespace-nowrap">추가</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 우측 열 -->
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-3 gap-2 items-center">
+                            <span class="font-semibold text-slate-600">노출상태</span>
+                            <div class="col-span-2 flex items-center gap-4">
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="display_status" checked class="text-indigo-600"> 노출</label>
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="display_status" class="text-indigo-600"> 노출 X</label>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 items-center">
+                            <span class="font-semibold text-slate-600">판매상태</span>
+                            <div class="col-span-2 flex items-center gap-4">
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="display_sale_status" class="text-indigo-600"> 판매</label>
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="radio" name="display_sale_status" checked class="text-indigo-600"> 품절</label>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 items-center">
+                            <span class="font-semibold text-slate-600">판매기간</span>
+                            <div class="col-span-2 flex items-center gap-2">
+                                <div class="relative flex-1">
+                                    <input type="text" value="2026년 10월 17일" class="w-full px-3 py-1.5 pl-8 border border-slate-300 rounded-xl bg-white text-slate-700 font-medium">
+                                    <i class="fa-regular fa-calendar absolute left-2.5 top-2.5 text-slate-400 text-xs"></i>
+                                </div>
+                                <span class="text-slate-400">~</span>
+                                <div class="relative flex-1">
+                                    <input type="text" value="2026년 10월 17일" class="w-full px-3 py-1.5 pl-8 border border-slate-300 rounded-xl bg-white text-slate-700 font-medium">
+                                    <i class="fa-regular fa-calendar absolute left-2.5 top-2.5 text-slate-400 text-xs"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- 🌟 [추가된 부분 끝] -->
+
+
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 
                 <!-- 1. 기본 정보 설정 -->
@@ -570,8 +657,16 @@
                 editorBtn.className = "px-3.5 py-1.5 rounded-lg bg-white text-indigo-600 shadow-sm transition-all";
                 settingBtn.className = "px-3.5 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all";
             }
-        }
 
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage({
+                    type: 'MODAL_TAB_CHANGED',
+                    activeTab: tabName // 'setting' 또는 'editor'
+                }, '*');
+            }
+            
+        }
+        
         window.onload = function() {
             renderAll();
         };
@@ -585,8 +680,9 @@
         // ==========================================
         // 피드백 기능 연동 (부모 창 통신 및 클릭 가로채기)
         // ==========================================
-        let isFeedbackModeActive = false;
+        let lastMarkerState = { show: false, isModalOpen: false };
 
+        // 메시지 리스너 연결
         window.addEventListener('message', function(event) {
             if (event.data && typeof event.data.feedbackMode !== 'undefined') {
                 isFeedbackModeActive = event.data.feedbackMode;
@@ -594,6 +690,24 @@
                     document.body.classList.add('feedback-mode');
                 } else {
                     document.body.classList.remove('feedback-mode');
+                }
+            }
+
+            if (event.data && event.data.type === 'FOCUS_IFRAME_MARKER') {
+                const feedbackId = event.data.feedbackId;
+                const targetMarker = document.querySelector(`.feedback-star-marker[data-id="${feedbackId}"]`);
+                
+                if (targetMarker) {
+                    targetMarker.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    // iframe 내부에서 확실하게 애니메이션 리셋 및 리플로우 실행
+                    targetMarker.classList.remove('marker-highlight-anim');
+                    void targetMarker.offsetWidth; // iframe 내부 DOM 리플로우 강제 유발
+                    targetMarker.classList.add('marker-highlight-anim');
+
+                    setTimeout(() => {
+                        targetMarker.classList.remove('marker-highlight-anim');
+                    }, 2000);
                 }
             }
         });
@@ -645,59 +759,6 @@
             return path.join(' > ');
         }
 
-        // 부모 창으로부터 툴팁 표시/숨김 신호 및 모달 열림 상태 수신 -> 빨간 별표 마커로 렌더링 (fixed 좌표계 적용)
-        window.addEventListener('message', function(event) { return;
-            if (event.data && event.data.type === 'SHOW_STAR_MARKERS') {
-                const show = event.data.show;
-                const isModalOpen = event.data.isModalOpen || false;
-                
-                document.querySelectorAll('.feedback-star-marker').forEach(el => el.remove());
-
-                if (show) {
-                    let feedbacks = JSON.parse(localStorage.getItem('ssoluck_interactive_feedbacks') || '[]');
-                    const activePage = location.pathname.split('/').pop() || 'detail.html';
-                    const currentFeedbacks = feedbacks.filter(item => item.pageUrl === activePage && !item.completed);
-
-                    currentFeedbacks.forEach(item => {
-                        if (!item.selector) return;
-
-                        // 모달 열림/닫힘 상태에 따른 툴팁 노출 조건 검사
-                        if (item.isModal && !isModalOpen) return;
-                        if (!item.isModal && isModalOpen) return;
-
-                        try {
-                            const targetEl = document.querySelector(item.selector);
-                            if (targetEl) {
-                                const rect = targetEl.getBoundingClientRect();
-                                if (rect.width > 0 && rect.height > 0) {
-                                    const marker = document.createElement('div');
-                                    marker.className = item.isModal ? 'feedback-star-marker feedback-star-marker-modal' : 'feedback-star-marker';
-                                    marker.innerHTML = `<i class="fa-solid fa-star text-[10px]"></i><div class="feedback-hover-tooltip">${item.content}</div>`;
-                                    
-                                    marker.style.top = (rect.top + rect.height / 2) + 'px';
-                                    marker.style.left = (rect.left + rect.width / 2) + 'px';
-
-                                    // 마커 클릭 시 부모 창(index.html)으로 포커스 요청 메시지 전송
-                                    marker.onclick = function(e) {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        if (window.parent && window.parent !== window) {
-                                            window.parent.postMessage({
-                                                type: 'FOCUS_FEEDBACK_ITEM',
-                                                feedbackId: item.id
-                                            }, '*');
-                                        }
-                                    };
-                                    targetEl.appendChild(marker);
-                                }
-                            }
-                        } catch (e) {
-                            console.log('iframe 별표 마커 렌더링 오류:', e);
-                        }
-                    });
-                }
-            }
-        });
     </script>
 </body>
 </html>
