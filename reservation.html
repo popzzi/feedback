@@ -727,7 +727,7 @@ Thank you.</div>
             document.body.classList.add('overflow-hidden');
             switchModalTab('info');
 
-            // 🌟 메인 창(index.html)으로 모달이 열렸음을 알림
+            // 메인 창(index.html)으로 모달이 열렸음을 알림
             if (window.parent && window.parent !== window) {
                 window.parent.postMessage({ type: 'MODAL_STATE_CHANGED', isOpen: true }, '*');
             }
@@ -737,10 +737,10 @@ Thank you.</div>
             document.getElementById('detail-modal').classList.add('hidden');
             document.body.classList.remove('overflow-hidden');
 
-            // 🌟 모달 내부의 마커들 즉시 청소
+            // 모달 내부의 마커들 즉시 청소
             document.querySelectorAll('.feedback-star-marker').forEach(el => el.remove());
 
-            // 🌟 메인 창(index.html)으로 모달이 닫혔음을 알림
+            // 메인 창(index.html)으로 모달이 닫혔음을 알림
             if (window.parent && window.parent !== window) {
                 window.parent.postMessage({ type: 'MODAL_STATE_CHANGED', isOpen: false }, '*');
             }
@@ -768,7 +768,7 @@ Thank you.</div>
             const activeContent = document.getElementById(`mtab-content-${tabName}`);
             const activeBtn = document.getElementById(`mtab-btn-${tabName}`);
             if (activeContent) activeContent.classList.remove('hidden');
-            if (activeBtn) activeBtn.className = "py-3 text-white font-medium border-b-2 border-indigo-500 whitespace-nowrap";
+            if (activeBtn) activeBtn.className = "py-3 text-indigo-400 font-bold border-b-4 border-indigo-400 whitespace-nowrap";
 
             if (window.parent && window.parent !== window) {
                 window.parent.postMessage({ type: 'MODAL_TAB_CHANGED', tabName: tabName }, '*');
