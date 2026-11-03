@@ -79,8 +79,8 @@
         
         /* 기존 툴팁 하단 표시용 클래스 */
         .feedback-star-marker.tooltip-bottom .feedback-hover-tooltip {
-            bottom: auto;
-            top: 100%;
+            bottom: auto !important;
+            top: 101% !important;
             margin-bottom: 0;
             margin-top: 6px;
         }
@@ -885,6 +885,9 @@
                             let tooltipStyle = 'style="white-space: pre-line;"';
                             if (isNearRight) {
                                 tooltipStyle = 'style="white-space: pre-line; left: auto; right: 0; transform: none;"';
+                                if(isNearTop) {
+                                    tooltipStyle = 'style="white-space: pre-line; top: 101%; bottom: auto; left: auto; right: 0; transform: none;"';
+                                }
                             } else if (isNearLeft) {
                                 tooltipStyle = 'style="white-space: pre-line; left: 0; right: auto; transform: none;"';
                             }
