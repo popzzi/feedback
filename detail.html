@@ -88,6 +88,28 @@
             z-index: 80;
         }
         .feedback-star-marker:hover .feedback-hover-tooltip { opacity: 1; visibility: visible; }
+
+        /* 기존 툴팁 하단 표시용 클래스 */
+        .feedback-star-marker.tooltip-bottom .feedback-hover-tooltip {
+            bottom: auto !important;
+            top: 101% !important;
+            margin-bottom: 0;
+            margin-top: 6px;
+        }
+
+        /* 우측 끝에 붙었을 때 툴팁이 왼쪽으로 펼쳐지도록 보정 */
+        .feedback-star-marker.tooltip-left .feedback-hover-tooltip {
+            left: auto;
+            right: 0;
+            transform: translateX(0);
+        }
+
+        /* 좌측 끝에 붙었을 때 툴팁이 오른쪽으로 펼쳐지도록 보정 */
+        .feedback-star-marker.tooltip-right .feedback-hover-tooltip {
+            left: 0;
+            right: auto;
+            transform: translateX(0);
+        }
         
         @keyframes marker-bounce-highlight {
             0%, 100% { transform: translate(-50%, -50%) scale(1); }
