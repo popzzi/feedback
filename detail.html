@@ -146,8 +146,11 @@
                     <button type="button" title="상품 삭제" class="w-9 h-9 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center transition-colors">
                         <i class="fa-solid fa-trash-can text-xs"></i>
                     </button>
-                    <button type="button" title="저장하기" class="h-9 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-sm">
-                        <i class="fa-solid fa-floppy-disk text-xs"></i> <span class="hidden sm:inline">저장하기</span>
+                    <button type="button" title="복사" class="h-9 px-3.5 bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-sm">
+                        <i class="fa-solid fa-copy text-xs"></i> <span class="hidden sm:inline">복사</span>
+                    </button>
+                    <button type="button" title="저장" class="h-9 px-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl text-xs flex items-center gap-1.5 transition-colors shadow-sm">
+                        <i class="fa-solid fa-floppy-disk text-xs"></i> <span class="hidden sm:inline">저장</span>
                     </button>
                 </div>
             </div>
@@ -313,13 +316,13 @@
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-start">
                             <span class="font-semibold text-slate-600 pt-1">입력 추가 항목</span>
                             <div class="sm:col-span-2 grid grid-cols-2 gap-1.5 text-slate-700">
-                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600"> 항공편</label>
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600" checked> 항공편</label>
                                 <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600"> 출발지</label>
                                 <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600"> 도착지</label>
-                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600"> 국적</label>
-                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600"> 생년월일</label>
-                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600"> 성별</label>
-                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600"> 여권번호</label>
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600" checked> 국적</label>
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600" checked> 생년월일</label>
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600" checked> 성별</label>
+                                <label class="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" class="rounded border-slate-300 text-indigo-600" checked> 여권번호</label>
                             </div>
                         </div>
                     </div>
@@ -368,12 +371,35 @@
                             <span class="font-semibold text-slate-600">간단 설명</span>
                             <input type="text" value="One-day tour | Available Oct. 15-18" class="sm:col-span-2 px-3 py-1.5 border border-slate-300 rounded-xl">
                         </div>
+                        
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
                             <span class="font-semibold text-slate-600">최대/최소 수량</span>
-                            <div class="sm:col-span-2 flex items-center gap-2">
-                                <input type="number" value="1" class="w-16 px-2 py-1 border border-slate-300 rounded-xl text-center font-bold">
-                                <input type="range" min="1" max="100" value="100" class="flex-1 accent-indigo-600">
-                                <span class="font-bold">100</span>
+                            <div class="sm:col-span-2 flex items-center gap-3">
+                                
+                                <!-- 좌측 최소값 직접 입력 인풋 (스핀 버튼 제거) -->
+                                <input type="number" id="min-input" value="3" min="1" max="100"
+                                    class="w-16 px-2 py-1 border border-slate-300 rounded-xl text-center font-bold text-slate-700 focus:outline-none focus:border-indigo-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                
+                                <!-- 듀얼 레인지 슬라이더 래퍼 -->
+                                <div class="relative flex-1 h-6 flex items-center">
+                                    <!-- 배경 트랙 -->
+                                    <div class="absolute w-full h-1.5 bg-slate-200 rounded-lg"></div>
+                                    <!-- 활성화 바 -->
+                                    <div id="range-track" class="absolute h-1.5 bg-indigo-600 rounded-lg"></div>
+                                    
+                                    <!-- 최소값 슬라이더 (투명 레이어) -->
+                                    <input type="range" id="min-range" min="1" max="100" value="3" 
+                                        class="absolute w-full pointer-events-none appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-600 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md">
+                                    
+                                    <!-- 최대값 슬라이더 (투명 레이어) -->
+                                    <input type="range" id="max-range" min="1" max="100" value="100" 
+                                        class="absolute w-full pointer-events-none appearance-none bg-transparent [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-600 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md">
+                                </div>
+                                
+                                <!-- 우측 최대값 직접 입력 인풋 (스핀 버튼 제거) -->
+                                <input type="number" id="max-input" value="100" min="1" max="100"
+                                    class="w-16 px-2 py-1 border border-slate-300 rounded-xl text-center font-bold text-slate-700 focus:outline-none focus:border-indigo-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                                
                             </div>
                         </div>
                     </div>
@@ -481,6 +507,70 @@
 
     <!-- 스크립트 모음 -->
     <script>
+        const minRange = document.getElementById('min-range');
+        const maxRange = document.getElementById('max-range');
+        const minInput = document.getElementById('min-input');
+        const maxInput = document.getElementById('max-input');
+        const rangeTrack = document.getElementById('range-track');
+
+        const minLimit = 1;
+        const maxLimit = 100;
+
+        function updateTrack(minVal, maxVal) {
+            const minPercent = ((minVal - minLimit) / (maxLimit - minLimit)) * 100;
+            const maxPercent = ((maxVal - minLimit) / (maxLimit - minLimit)) * 100;
+            
+            rangeTrack.style.left = minPercent + '%';
+            rangeTrack.style.width = (maxPercent - minPercent) + '%';
+        }
+
+        // 1. 슬라이더를 움직일 때 -> 인풋과 트랙 업데이트
+        function handleRangeInput() {
+            let minVal = parseInt(minRange.value);
+            let maxVal = parseInt(maxRange.value);
+
+            if (minVal > maxVal) {
+                minVal = maxVal;
+                minRange.value = minVal;
+            }
+
+            minInput.value = minVal;
+            maxInput.value = maxVal;
+            updateTrack(minVal, maxVal);
+        }
+
+        // 2. 인풋에 직접 타이핑할 때 -> 슬라이더와 트랙 업데이트
+        function handleInputChange() {
+            let minVal = parseInt(minInput.value) || minLimit;
+            let maxVal = parseInt(maxInput.value) || maxLimit;
+
+            // 범위 제한 (1~100)
+            if (minVal < minLimit) minVal = minLimit;
+            if (maxVal > maxLimit) maxVal = maxLimit;
+
+            // 최소가 최대보다 커지지 않게 보정
+            if (minVal > maxVal) {
+                maxVal = minVal;
+            }
+
+            minRange.value = minVal;
+            maxRange.value = maxVal;
+            minInput.value = minVal;
+            maxInput.value = maxVal;
+
+            updateTrack(minVal, maxVal);
+        }
+
+        // 이벤트 리스너 연결
+        minRange.addEventListener('input', handleRangeInput);
+        maxRange.addEventListener('input', handleRangeInput);
+
+        minInput.addEventListener('input', handleInputChange);
+        maxInput.addEventListener('input', handleInputChange);
+
+        // 초기 실행
+        updateTrack(parseInt(minRange.value), parseInt(maxRange.value));
+
         const toggle = document.getElementById('syncToggle');
         const syncText = document.getElementById('syncText');
 
