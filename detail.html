@@ -654,6 +654,7 @@
                         <div class="flex items-center justify-between text-[11px] font-bold text-indigo-600">
                             <span><i class="fa-solid fa-cube mr-1"></i> ${block.type}</span>
                             <div class="flex items-center gap-1 text-slate-400">
+                                <button type="button" onclick="copyBlock(${index})" class="p-1 hover:text-slate-700 ${index === 0 ? 'opacity-30 cursor-not-allowed' : ''}"><i class="fa-solid fa-copy"></i></button>
                                 <button type="button" onclick="moveBlock(${index}, -1)" class="p-1 hover:text-slate-700 ${index === 0 ? 'opacity-30 cursor-not-allowed' : ''}"><i class="fa-solid fa-arrow-up"></i></button>
                                 <button type="button" onclick="moveBlock(${index}, 1)" class="p-1 hover:text-slate-700 ${index === blocks.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}"><i class="fa-solid fa-arrow-down"></i></button>
                                 <button type="button" onclick="deleteBlock(${index})" class="p-1 hover:text-rose-600"><i class="fa-solid fa-trash-can"></i></button>
